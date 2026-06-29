@@ -2,16 +2,17 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 import os
+import plotly.express as px
 
 st.set_page_config(page_title="AI Perfumery Lab Pro", layout="wide")
-st.title("🧪 AI Perfumery Lab: Regulatory Compliance Edition")
+st.title("🧪 AI Perfumery Lab: Professional Edition")
 
-# --- 1. SETUP ---
+# --- 1. SETUP DATA & AI ---
 @st.cache_data
 def load_db():
     if os.path.exists("bahan_perfumery.csv"):
         return pd.read_csv("bahan_perfumery.csv")
-    return pd.DataFrame(columns=["Bahan", "Kategori_IFRA_4"])
+    return pd.DataFrame(columns=["Bahan", "Kategori_IFRA_4", "Aroma_Profile"])
 
 db = load_db()
 list_bahan = db["Bahan"].unique().tolist() if not db.empty else []
@@ -37,7 +38,6 @@ st.info(f"Target Konsentrat: **{target_konsentrat_ml:.2f} ML**")
 st.subheader("📝 Input Formula")
 kolom_wajib = ["Bahan", "Persentase (%)", "Satuan Timbangan"]
 
-# Proteksi: Reset session jika kolom tidak sesuai
 if "formula_df" not in st.session_state or list(st.session_state.formula_df.columns) != kolom_wajib:
     st.session_state.formula_df = pd.DataFrame(columns=kolom_wajib)
 
@@ -51,36 +51,44 @@ edited_df = st.data_editor(
 )
 st.session_state.formula_df = edited_df
 
-# --- 4. ANALISIS & VERIFIKASI ---
+# --- 4. ANALISIS & DIAGRAM ---
 df_calc = edited_df.dropna(subset=["Bahan"]).copy()
 
 if not df_calc.empty:
     df_calc["Persentase (%)"] = pd.to_numeric(df_calc["Persentase (%)"], errors='coerce').fillna(0)
-    df_calc["Satuan Timbangan"] = df_calc["Satuan Timbangan"].fillna("ml")
+    
+    # Merge dengan Database untuk Profil Aroma & IFRA
+    df_merged = df_calc.merge(db, on="Bahan", how="left").fillna({"Aroma_Profile": "Unknown", "Kategori_IFRA_4": 100.0})
     
     # Kalkulasi Fisik
-    df_calc["Volume Internal (ML)"] = (df_calc["Persentase (%)"] / 100) * target_konsentrat_ml
-    df_calc["Jumlah Dibutuhkan"] = df_calc.apply(lambda r: r["Volume Internal (ML)"] * 0.9 if r["Satuan Timbangan"] == "g" else r["Volume Internal (ML)"], axis=1)
+    df_merged["Volume Internal (ML)"] = (df_merged["Persentase (%)"] / 100) * target_konsentrat_ml
+    df_merged["Jumlah Dibutuhkan"] = df_merged.apply(lambda r: r["Volume Internal (ML)"] * 0.9 if r["Satuan Timbangan"] == "g" else r["Volume Internal (ML)"], axis=1)
     
-    # Kalkulasi IFRA
-    df_calc["Berat Bahan Aktual (g)"] = df_calc["Volume Internal (ML)"] * 0.9
-    df_calc["% di Produk Akhir"] = (df_calc["Berat Bahan Aktual (g)"] / total_berat_produk_g) * 100
-    
-    # Fungsi IFRA yang aman (Mencegah KeyError)
-    def get_ifra(nama):
-        match = db[db["Bahan"].str.lower() == str(nama).lower()]
-        return match.iloc[0]["Kategori_IFRA_4"] if not match.empty else 100.0
+    # IFRA Check (Produk Akhir)
+    df_merged["Berat Bahan Aktual (g)"] = df_merged["Volume Internal (ML)"] * 0.9
+    df_merged["% di Produk Akhir"] = (df_merged["Berat Bahan Aktual (g)"] / total_berat_produk_g) * 100
+    df_merged["Status IFRA"] = df_merged.apply(lambda r: "✅ Aman" if r["% di Produk Akhir"] <= r["Kategori_IFRA_4"] else "❌ OVER LIMIT", axis=1)
 
-    df_calc["Batas IFRA 4 (%)"] = df_calc["Bahan"].apply(get_ifra)
-    df_calc["Status IFRA"] = df_calc.apply(lambda r: "✅ Aman" if r["% di Produk Akhir"] <= r["Batas IFRA 4 (%)"] else "❌ OVER LIMIT", axis=1)
+    st.subheader("📊 Hasil Analisa")
+    st.dataframe(df_merged[["Bahan", "Aroma_Profile", "Persentase (%)", "% di Produk Akhir", "Status IFRA"]], use_container_width=True)
 
-    st.subheader("📊 Hasil Kalkulasi & Kepatuhan")
-    st.dataframe(df_calc[["Bahan", "Persentase (%)", "% di Produk Akhir", "Batas IFRA 4 (%)", "Jumlah Dibutuhkan", "Satuan Timbangan", "Status IFRA"]], use_container_width=True)
+    # Diagram Profil Aroma
+    st.subheader("📊 Diagram Profil Aroma")
+    aroma_counts = df_merged.groupby("Aroma_Profile")["Persentase (%)"].sum().reset_index()
+    fig = px.pie(aroma_counts, values="Persentase (%)", names="Aroma_Profile")
+    st.plotly_chart(fig)
 
     # --- 5. VERIFIKASI AI ---
-    if st.button("Audit Regulasi dengan AI"):
-        with st.spinner("AI sedang melakukan audit regulasi..."):
-            prompt = f"Audit formula berikut untuk IFRA Kategori 4: {df_calc.to_string()}. Identifikasi pelanggaran batas IFRA, risiko alergen, dan berikan saran perbaikan."
+    if st.button("Analisa & Optimasi Formula oleh AI"):
+        with st.spinner("AI sedang melakukan audit..."):
+            prompt = f"""
+            Anda adalah Master Perfumer. Analisa formula berikut:
+            {df_merged[['Bahan', 'Persentase (%)', 'Aroma_Profile', 'Status IFRA']].to_string()}
+            
+            1. Evaluasi apakah profil aroma (Citrus, Floral, dll) sudah seimbang?
+            2. Berikan saran penambahan/pengurangan bahan untuk memperbaiki aroma.
+            3. Berikan saran perbaikan jika ada 'Status IFRA' yang melanggar.
+            """
             try:
                 response = model.generate_content(prompt)
                 st.markdown("### 🛡️ Laporan Audit Kepatuhan AI")
