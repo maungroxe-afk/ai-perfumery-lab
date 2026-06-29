@@ -3,15 +3,6 @@ import pandas as pd
 import google.generativeai as genai
 import os
 
-# --- ANALISA OTOMATIS ---
-# Ubah bagian pengecekan Anda menjadi seperti ini:
-
-# Pastikan kolom "Berat (gram)" adalah numerik, ubah data non-angka menjadi 0
-edited_df["Berat (gram)"] = pd.to_numeric(edited_df["Berat (gram)"], errors='coerce').fillna(0)
-
-# Sekarang lakukan pengecekan
-if not edited_df.empty and edited_df["Berat (gram)"].sum() > 0:
-    analisa_df = edited_df.copy().dropna()
 # Konfigurasi Halaman
 st.set_page_config(page_title="AI Perfumery Lab", layout="wide")
 
@@ -23,7 +14,7 @@ def load_db():
     if os.path.exists("bahan_perfumery.csv"):
         return pd.read_csv("bahan_perfumery.csv")
     else:
-        # Fallback jika file belum diupload
+        # Data kosong jika file belum ada
         return pd.DataFrame(columns=["Bahan", "Kategori", "IFRA_Max"])
 
 db = load_db()
@@ -51,17 +42,25 @@ edited_df = st.data_editor(
             options=list_bahan,
             width="large",
             required=True,
+        ),
+        "Berat (gram)": st.column_config.NumberColumn(
+            "Berat (gram)",
+            min_value=0.0,
+            format="%.3f"
         )
     }
 )
 
 # --- ANALISA OTOMATIS ---
+# Memastikan kolom numerik agar tidak error
+edited_df["Berat (gram)"] = pd.to_numeric(edited_df["Berat (gram)"], errors='coerce').fillna(0)
+
 if not edited_df.empty and edited_df["Berat (gram)"].sum() > 0:
-    analisa_df = edited_df.copy().dropna()
+    analisa_df = edited_df.copy().dropna(subset=["Bahan (Notes)"])
     total_berat = analisa_df["Berat (gram)"].sum()
     
     def get_info(nama):
-        if nama in db["Bahan"].values:
+        if not db.empty and nama in db["Bahan"].values:
             row = db[db["Bahan"] == nama].iloc[0]
             return row["Kategori"], row["IFRA_Max"]
         return "Custom/New", 100.0
@@ -86,12 +85,14 @@ st.subheader("🤖 AI Perfumer Assistant")
 user_prompt = st.text_input("Tanyakan AI tentang formula Anda:")
 
 if st.button("Analisa dengan AI"):
-    formula_text = edited_df.to_string(index=False)
+    formula_text = edited_df.dropna(subset=["Bahan (Notes)"]).to_string(index=False)
     full_prompt = f"""
-    Anda adalah master perfumer. Berikut formula saya:
+    Anda adalah master perfumer. Berikut formula konsentrat parfum saya:
     {formula_text}
     
-    Jika ada bahan 'Custom/New', berikan saran profil aroma dan keamanan.
+    Jika ada bahan 'Custom/New', mohon berikan edukasi mengenai bahan tersebut, 
+    prediksi profil aromanya, dan estimasi batas aman penggunaannya.
+    
     Pertanyaan: {user_prompt}
     """
     response = model.generate_content(full_prompt)
