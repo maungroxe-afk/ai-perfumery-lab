@@ -2,6 +2,67 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 
+# --- UPDATE PROMPT AI ---
+full_prompt = f"""
+Anda adalah seorang Master Perfumer profesional. Berikut adalah formula konsentrat parfum:
+{formula_text}
+
+CATATAN: Jika Anda melihat bahan dengan Kategori 'Custom/New', mohon berikan edukasi mengenai bahan tersebut, 
+prediksi profil aromanya, dan estimasi batas aman penggunaannya berdasarkan pengetahuan kimia Anda.
+
+Pertanyaan: {user_prompt}
+"""
+
+# --- MODIFIKASI BAGIAN KALKULASI DI APP.PY ---
+
+def get_bahan_info_safe(nama_bahan, db):
+    # Cek apakah bahan ada di database
+    if nama_bahan in db["Bahan"].values:
+        info = db[db["Bahan"] == nama_bahan].iloc[0]
+        return info["Kategori"], info["IFRA_Max"]
+    else:
+        # Jika tidak ada, kembalikan nilai default (100% agar tidak langsung error)
+        # Atau bisa diset ke None untuk ditandai sebagai 'Perlu Analisa AI'
+        return "Unknown", 100.0 
+
+# Di dalam bagian tabel analisa:
+def process_formula(edited_df, db):
+    analisa_df = edited_df.copy()
+    
+    # Fungsi untuk mendapatkan info
+    def fetch_data(nama):
+        if nama in db["Bahan"].values:
+            row = db[db["Bahan"] == nama].iloc[0]
+            return pd.Series([row["Kategori"], row["IFRA_Max"]])
+        else:
+            return pd.Series(["Custom/New", 100.0])
+
+    analisa_df[["Kategori", "Batas Maksimal IFRA (%)"]] = analisa_df["Bahan (Notes)"].apply(fetch_data)
+    
+    # Kalkulasi sisa... (seperti kode sebelumnya)
+    return analisa_df
+    
+# 1. Membaca Database dari CSV
+@st.cache_data
+def load_data():
+    # Pastikan file bahan_perfumery.csv sudah ada di folder yang sama
+    df = pd.read_csv("bahan_perfumery.csv")
+    return df
+
+db = load_data()
+list_bahan = db["Bahan"].tolist()
+
+# 2. Fungsi untuk mengambil data IFRA secara otomatis
+def get_bahan_info(nama_bahan):
+    info = db[db["Bahan"] == nama_bahan].iloc[0]
+    return info["Kategori"], info["IFRA_Max"]
+
+# (Sisanya di bagian input tabel, gunakan kode ini)
+"Bahan (Notes)": st.column_config.SelectboxColumn(
+    "Pilih Bahan",
+    options=list_bahan, # Ini akan menampilkan 500+ pilihan
+    required=True,
+),
 # Konfigurasi Halaman
 st.set_page_config(page_title="AI Perfumery Lab", layout="wide")
 
