@@ -24,7 +24,7 @@ except:
     st.sidebar.error("API Key belum diset di Streamlit Secrets!")
 
 # --- 1. SPESIFIKASI ---
-st.subheader("⚙️ 1. Tentukan Spesifikasi Produk")
+st.subheader("⚙️ 1. Spesifikasi Produk")
 col1, col2 = st.columns(2)
 konsentrasi_target = col1.selectbox("Konsentrasi:", ["Eau de Cologne (5%)", "Eau de Toilette (10%)", "Eau de Parfum (20%)", "Extrait de Parfum (30%)"])
 target_total_ml = col2.number_input("Total Volume (ml)", value=100.0)
@@ -41,38 +41,38 @@ if "formula_df" not in st.session_state:
 edited_df = st.data_editor(
     st.session_state.formula_df, num_rows="dynamic", use_container_width=True,
     column_config={
-        "Bahan (Notes)": st.column_config.TextColumn("Pilih Bahan / Ketik Manual", help="Pilih dari daftar atau ketik manual jika tidak ada"),
+        "Bahan (Notes)": st.column_config.TextColumn("Pilih Bahan / Ketik Manual"),
         "Satuan": st.column_config.SelectboxColumn("Satuan", options=["g", "ml"]),
         "Jumlah": st.column_config.NumberColumn("Jumlah", min_value=0.0, format="%.3f")
     }
 )
 
-# --- 3. ANALISA & INTEGRASI PERSENTASE ---
-df_clean = edited_df.dropna(subset=["Bahan (Notes)"]).copy()
-df_clean["Jumlah"] = pd.to_numeric(df_clean["Jumlah"], errors='coerce').fillna(0)
-df_clean["Satuan"] = df_clean["Satuan"].fillna("g")
+# --- 3. ANALISA & PERSENTASE TERINTEGRASI ---
+# Bersihkan data: paksa kolom 'Jumlah' jadi angka, ganti None jadi 0
+df_calc = edited_df.dropna(subset=["Bahan (Notes)"]).copy()
+df_calc["Jumlah"] = pd.to_numeric(df_calc["Jumlah"], errors='coerce').fillna(0)
+df_calc["Satuan"] = df_calc["Satuan"].fillna("g")
 
-def convert_to_gram(row):
-    return row["Jumlah"] * 0.9 if row["Satuan"] == "ml" else row["Jumlah"]
+# Konversi ke gram
+df_calc["Berat_Gram"] = df_calc.apply(lambda x: x["Jumlah"] * 0.9 if x["Satuan"] == "ml" else x["Jumlah"], axis=1)
+total_g = df_calc["Berat_Gram"].sum()
 
-if not df_clean.empty:
-    df_clean["Berat_Gram"] = df_clean.apply(convert_to_gram, axis=1)
-    total_g = df_clean["Berat_Gram"].sum()
+if total_g > 0:
+    # Hitung Persentase
+    df_calc["% dalam Formula"] = (df_calc["Berat_Gram"] / total_g) * 100
     
-    # Hitung % terhadap target konsentrat
-    df_clean["% Dalam Konsentrat"] = (df_clean["Berat_Gram"] / total_g) * 100 if total_g > 0 else 0
-    df_clean["% terhadap Target"] = (df_clean["Berat_Gram"] / target_konsentrat_g) * 100 if target_konsentrat_g > 0 else 0
-
-    st.subheader("📊 3. Analisa Formula")
-    st.dataframe(df_clean, use_container_width=True, hide_index=True)
+    st.subheader("📊 3. Analisa & Persentase")
+    st.dataframe(df_calc[["Bahan (Notes)", "Jumlah", "Satuan", "Berat_Gram", "% dalam Formula"]], use_container_width=True, hide_index=True)
     
-    st.metric("Total Konsentrat Terkumpul", f"{total_g:.2f}g / {target_konsentrat_g:.2f}g")
+    # Progress Bar ke Target
+    st.progress(min(total_g / target_konsentrat_g, 1.0), text=f"Progres Konsentrat: {total_g:.2f}g / {target_konsentrat_g:.2f}g")
 
 # --- 4. AI ASSISTANT ---
 st.subheader("🤖 4. AI Perfumer Assistant")
 if st.button("Analisa dengan AI"):
     try:
-        prompt = f"Formula: {df_clean.to_string()}. Target Konsentrasi: {konsentrasi_target}. Analisa keseimbangan formula."
+        # Kirim data bersih ke AI
+        prompt = f"Formula Konsentrat:\n{df_calc[['Bahan (Notes)', 'Berat_Gram', '% dalam Formula']].to_string()}\nTarget Konsentrasi: {konsentrasi_target}. Berikan analisis teknis."
         response = model.generate_content(prompt)
         st.info(response.text)
     except Exception as e:
