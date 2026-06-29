@@ -21,10 +21,11 @@ list_bahan = db["Bahan"].tolist() if not db.empty else []
 # --- CONFIG AI ---
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # Menggunakan 'gemini-1.5-flash' yang lebih stabil dan umum digunakan saat ini
+    
+    # Menggunakan daftar model untuk memastikan yang kita panggil tersedia
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    st.sidebar.error(f"Error Konfigurasi AI: {e}")
+    st.sidebar.error(f"Error Konfigurasi: {e}")
 
 # --- LANGKAH 1: SPESIFIKASI PRODUK ---
 st.subheader("⚙️ 1. Tentukan Spesifikasi Produk")
@@ -98,11 +99,21 @@ st.divider()
 st.subheader("🤖 4. AI Perfumer Assistant")
 if st.button("Analisa dengan AI"):
     try:
-        formula_text = df_clean.to_string(index=False)
-        full_prompt = f"Anda adalah master perfumer. Berikut formula saya: {formula_text}. Berikan saran optimasi."
+        # Menghapus kolom yang tidak perlu sebelum dikirim ke AI
+        data_untuk_ai = df_clean.drop(columns=["Kategori", "Batas Maksimal IFRA (%)", "Status"], errors='ignore')
+        formula_text = data_untuk_ai.to_string(index=False)
         
-        # Eksekusi AI
+        full_prompt = f"""
+        Anda adalah Master Perfumer. Berikut adalah data formula saya:
+        {formula_text}
+        
+        Berikan saran profesional mengenai keseimbangan aroma dan kepatuhan IFRA jika ada bahan yang perlu diperhatikan.
+        """
+        
+        # Panggil API
         response = model.generate_content(full_prompt)
         st.info(response.text)
+        
     except Exception as e:
-        st.error(f"Gagal menghubungi AI. Pastikan API Key benar dan model tersedia. Detail: {e}")
+        st.error("Gagal menghubungi AI. Detail error:")
+        st.code(str(e))
