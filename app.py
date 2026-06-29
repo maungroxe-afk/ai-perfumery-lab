@@ -25,26 +25,29 @@ try:
 except:
     st.sidebar.error("API Key belum diset di Streamlit Secrets!")
 
-# --- FITUR KONSENTRASI ---
-st.sidebar.header("⚖️ Target Produksi")
-target_total_berat = st.sidebar.number_input("Total Berat Parfum (gram)", value=100.0)
-konsentrasi_target = st.sidebar.selectbox(
-    "Pilih Konsentrasi Parfum:",
-    ["Eau de Cologne (5%)", "Eau de Toilette (10%)", "Eau de Parfum (20%)", "Extrait de Parfum (30%)"]
-)
+# --- LANGKAH 1: PEMILIHAN KONSENTRASI ---
+st.subheader("⚙️ 1. Tentukan Spesifikasi Produk")
+col_a, col_b = st.columns(2)
+with col_a:
+    konsentrasi_target = st.selectbox(
+        "Pilih Konsentrasi Parfum:",
+        ["Eau de Cologne (5%)", "Eau de Toilette (10%)", "Eau de Parfum (20%)", "Extrait de Parfum (30%)"]
+    )
+with col_b:
+    target_total_berat = st.number_input("Total Berat Produk Jadi (gram)", value=100.0)
 
-# Ekstrak nilai persen dari string
 persen_konsentrasi = int(konsentrasi_target.split('(')[1].replace('%)', ''))
 target_konsentrat = (persen_konsentrasi / 100) * target_total_berat
-target_alkohol = target_total_berat - target_konsentrat
 
-st.sidebar.info(f"Target Konsentrat: {target_konsentrat:.2f}g | Alkohol/Solvent: {target_alkohol:.2f}g")
+st.info(f"Untuk target {konsentrasi_target} pada total {target_total_berat}g, Anda membutuhkan **{target_konsentrat:.2f}g konsentrat parfum**.")
 
-# --- FORMULA BUILDER ---
+st.divider()
+
+# --- LANGKAH 2: FORMULA BUILDER ---
+st.subheader("📝 2. Input Formula (Konsentrat)")
 if "formula_df" not in st.session_state:
     st.session_state.formula_df = pd.DataFrame(columns=["Bahan (Notes)", "Berat (gram)"])
 
-st.subheader("📝 Input Formula (Konsentrat)")
 edited_df = st.data_editor(
     st.session_state.formula_df, num_rows="dynamic", use_container_width=True,
     column_config={
@@ -58,14 +61,12 @@ edited_df["Berat (gram)"] = pd.to_numeric(edited_df["Berat (gram)"], errors='coe
 current_konsentrat = edited_df["Berat (gram)"].sum()
 
 if current_konsentrat > 0:
-    st.subheader("📊 Analisa & Kalkulasi")
+    st.divider()
+    st.subheader("📊 3. Analisa & Kepatuhan")
     
-    # Menghitung sisa/kurang berat ke target
-    selisih = target_konsentrat - current_konsentrat
-    if selisih > 0:
-        st.warning(f"Anda masih membutuhkan {selisih:.2f}g lagi untuk mencapai target konsentrasi {konsentrasi_target}.")
-    else:
-        st.success("Target konsentrasi telah tercapai.")
+    # Progress Bar
+    progress = min(current_konsentrat / target_konsentrat, 1.0)
+    st.progress(progress, text=f"Progres Konsentrat: {current_konsentrat:.2f}g / {target_konsentrat:.2f}g")
 
     # Analisa IFRA
     analisa_df = edited_df.copy().dropna(subset=["Bahan (Notes)"])
@@ -77,17 +78,20 @@ if current_konsentrat > 0:
 
     analisa_df[["Kategori", "Batas Maksimal IFRA (%)"]] = analisa_df["Bahan (Notes)"].apply(lambda x: pd.Series(get_info(x)))
     analisa_df["% Dalam Konsentrat"] = (analisa_df["Berat (gram)"] / current_konsentrat) * 100
+    analisa_df["Status"] = analisa_df.apply(lambda r: "✅ Aman" if r["% Dalam Konsentrat"] <= r["Batas Maksimal IFRA (%)"] else "❌ OVER LIMIT", axis=1)
+    
     st.dataframe(analisa_df, use_container_width=True, hide_index=True)
 
 # --- AI ASSISTANT ---
-st.subheader("🤖 AI Perfumer Assistant")
-user_prompt = st.text_input("Tanyakan saran formulasi:")
+st.divider()
+st.subheader("🤖 4. AI Perfumer Assistant")
+user_prompt = st.text_input("Tanyakan saran atau minta AI menyeimbangkan formula:")
 
-if st.button("Dapatkan Rekomendasi AI"):
-    formula_text = edited_df.to_string(index=False)
+if st.button("Analisa dengan AI"):
+    formula_text = edited_df.dropna(subset=["Bahan (Notes)"]).to_string(index=False)
     full_prompt = f"""
     Anda adalah master perfumer. User ingin membuat parfum dengan konsentrasi {konsentrasi_target}.
-    Total berat konsentrat saat ini: {current_konsentrat}g dari target {target_konsentrat}g.
+    Target konsentrat adalah {target_konsentrat}g. Saat ini sudah ada {current_konsentrat}g.
     
     Formula saat ini:
     {formula_text}
