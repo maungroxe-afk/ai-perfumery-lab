@@ -3,6 +3,15 @@ import pandas as pd
 import google.generativeai as genai
 import os
 
+# --- ANALISA OTOMATIS ---
+# Ubah bagian pengecekan Anda menjadi seperti ini:
+
+# Pastikan kolom "Berat (gram)" adalah numerik, ubah data non-angka menjadi 0
+edited_df["Berat (gram)"] = pd.to_numeric(edited_df["Berat (gram)"], errors='coerce').fillna(0)
+
+# Sekarang lakukan pengecekan
+if not edited_df.empty and edited_df["Berat (gram)"].sum() > 0:
+    analisa_df = edited_df.copy().dropna()
 # Konfigurasi Halaman
 st.set_page_config(page_title="AI Perfumery Lab", layout="wide")
 
