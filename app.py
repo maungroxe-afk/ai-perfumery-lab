@@ -21,9 +21,10 @@ list_bahan = db["Bahan"].tolist() if not db.empty else []
 # --- CONFIG AI ---
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # Menggunakan 'gemini-1.5-flash' yang lebih stabil dan umum digunakan saat ini
     model = genai.GenerativeModel('gemini-1.5-flash')
-except:
-    st.sidebar.error("API Key belum diset di Streamlit Secrets!")
+except Exception as e:
+    st.sidebar.error(f"Error Konfigurasi AI: {e}")
 
 # --- LANGKAH 1: SPESIFIKASI PRODUK ---
 st.subheader("⚙️ 1. Tentukan Spesifikasi Produk")
@@ -96,7 +97,12 @@ if not df_clean.empty:
 st.divider()
 st.subheader("🤖 4. AI Perfumer Assistant")
 if st.button("Analisa dengan AI"):
-    formula_text = df_clean.to_string(index=False)
-    full_prompt = f"Anda adalah master perfumer. Berikut formula saya: {formula_text}. Berikan saran optimasi."
-    response = model.generate_content(full_prompt)
-    st.info(response.text)
+    try:
+        formula_text = df_clean.to_string(index=False)
+        full_prompt = f"Anda adalah master perfumer. Berikut formula saya: {formula_text}. Berikan saran optimasi."
+        
+        # Eksekusi AI
+        response = model.generate_content(full_prompt)
+        st.info(response.text)
+    except Exception as e:
+        st.error(f"Gagal menghubungi AI. Pastikan API Key benar dan model tersedia. Detail: {e}")
