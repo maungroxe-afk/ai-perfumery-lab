@@ -8,10 +8,13 @@ st.set_page_config(page_title="AI Perfumery Lab", layout="wide")
 st.title("🧪 AI Perfumery Lab: Project UCP ALPHA")
 st.markdown("Manajemen Formula, Kalkulasi Biaya, Cek IFRA, & Asisten AI Real-Time")
 
-# --- SIDEBAR: KONFIGURASI AI ---
-st.sidebar.header("⚙️ Konfigurasi AI")
-api_key = st.sidebar.text_input("Masukkan Google Gemini API Key:", type="password")
-st.sidebar.markdown("*Dapatkan API Key gratis di [Google AI Studio](https://aistudio.google.com/)*")
+# --- MENGAMBIL API KEY SECARA OTOMATIS ---
+try:
+    # Membaca API Key dari Streamlit Secrets
+    api_key = st.secrets["GEMINI_API_KEY"]
+except KeyError:
+    st.error("⚠️ API Key belum dikonfigurasi di Streamlit Secrets!")
+    api_key = None
 
 # --- INISIALISASI DATA FORMULA ---
 # Menggunakan beberapa bahan contoh (bisa diedit di aplikasi)
