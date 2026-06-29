@@ -10,8 +10,15 @@ st.title("🧪 AI Perfumery Lab: Professional Edition")
 # --- 1. SETUP DATA & AI ---
 @st.cache_data
 def load_db():
+    # Pastikan file ada
     if os.path.exists("bahan_perfumery.csv"):
-        return pd.read_csv("bahan_perfumery.csv")
+        df = pd.read_csv("bahan_perfumery.csv")
+        # Pastikan kolom yang dibutuhkan ADA
+        if "Kategori_IFRA_4" not in df.columns:
+            df["Kategori_IFRA_4"] = 100.0
+        if "Aroma_Profile" not in df.columns:
+            df["Aroma_Profile"] = "Unknown"
+        return df
     return pd.DataFrame(columns=["Bahan", "Kategori_IFRA_4", "Aroma_Profile"])
 
 db = load_db()
@@ -36,20 +43,17 @@ st.info(f"Target Konsentrat: **{target_konsentrat_ml:.2f} ML**")
 
 # --- 3. INPUT FORMULA (HYBRID) ---
 st.subheader("📝 Input Formula")
-kolom_wajib = ["Bahan", "Persentase (%)", "Satuan Timbangan"]
-
-if "formula_df" not in st.session_state or list(st.session_state.formula_df.columns) != kolom_wajib:
-    st.session_state.formula_df = pd.DataFrame(columns=kolom_wajib)
+if "formula_df" not in st.session_state:
+    st.session_state.formula_df = pd.DataFrame(columns=["Bahan", "Persentase (%)", "Satuan Timbangan"])
 
 edited_df = st.data_editor(
     st.session_state.formula_df, num_rows="dynamic", use_container_width=True,
     column_config={
-        "Bahan": st.column_config.SelectboxColumn("Bahan (Pilih atau Ketik)", options=list_bahan, width="large"),
+        "Bahan": st.column_config.SelectboxColumn("Bahan", options=list_bahan, width="large"),
         "Persentase (%)": st.column_config.NumberColumn("Persentase (%)", min_value=0.0, max_value=100.0, format="%.2f"),
         "Satuan Timbangan": st.column_config.SelectboxColumn("Satuan", options=["ml", "g"])
     }
 )
-st.session_state.formula_df = edited_df
 
 # --- 4. ANALISIS & DIAGRAM ---
 df_calc = edited_df.dropna(subset=["Bahan"]).copy()
@@ -57,20 +61,19 @@ df_calc = edited_df.dropna(subset=["Bahan"]).copy()
 if not df_calc.empty:
     df_calc["Persentase (%)"] = pd.to_numeric(df_calc["Persentase (%)"], errors='coerce').fillna(0)
     
-    # Merge dengan Database untuk Profil Aroma & IFRA
-    df_merged = df_calc.merge(db, on="Bahan", how="left").fillna({"Aroma_Profile": "Unknown", "Kategori_IFRA_4": 100.0})
+    # Merge dengan DB menggunakan proteksi kolom
+    df_merged = df_calc.merge(db, on="Bahan", how="left")
+    df_merged["Aroma_Profile"] = df_merged["Aroma_Profile"].fillna("Unknown")
+    df_merged["Kategori_IFRA_4"] = df_merged["Kategori_IFRA_4"].fillna(100.0)
     
-    # Kalkulasi Fisik
+    # Kalkulasi Fisik & IFRA
     df_merged["Volume Internal (ML)"] = (df_merged["Persentase (%)"] / 100) * target_konsentrat_ml
-    df_merged["Jumlah Dibutuhkan"] = df_merged.apply(lambda r: r["Volume Internal (ML)"] * 0.9 if r["Satuan Timbangan"] == "g" else r["Volume Internal (ML)"], axis=1)
-    
-    # IFRA Check (Produk Akhir)
     df_merged["Berat Bahan Aktual (g)"] = df_merged["Volume Internal (ML)"] * 0.9
     df_merged["% di Produk Akhir"] = (df_merged["Berat Bahan Aktual (g)"] / total_berat_produk_g) * 100
     df_merged["Status IFRA"] = df_merged.apply(lambda r: "✅ Aman" if r["% di Produk Akhir"] <= r["Kategori_IFRA_4"] else "❌ OVER LIMIT", axis=1)
 
     st.subheader("📊 Hasil Analisa")
-    st.dataframe(df_merged[["Bahan", "Aroma_Profile", "Persentase (%)", "% di Produk Akhir", "Status IFRA"]], use_container_width=True)
+    st.dataframe(df_merged[["Bahan", "Aroma_Profile", "Persentase (%)", "Status IFRA"]], use_container_width=True)
 
     # Diagram Profil Aroma
     st.subheader("📊 Diagram Profil Aroma")
@@ -80,18 +83,9 @@ if not df_calc.empty:
 
     # --- 5. VERIFIKASI AI ---
     if st.button("Analisa & Optimasi Formula oleh AI"):
-        with st.spinner("AI sedang melakukan audit..."):
-            prompt = f"""
-            Anda adalah Master Perfumer. Analisa formula berikut:
-            {df_merged[['Bahan', 'Persentase (%)', 'Aroma_Profile', 'Status IFRA']].to_string()}
-            
-            1. Evaluasi apakah profil aroma (Citrus, Floral, dll) sudah seimbang?
-            2. Berikan saran penambahan/pengurangan bahan untuk memperbaiki aroma.
-            3. Berikan saran perbaikan jika ada 'Status IFRA' yang melanggar.
-            """
-            try:
-                response = model.generate_content(prompt)
-                st.markdown("### 🛡️ Laporan Audit Kepatuhan AI")
-                st.info(response.text)
-            except Exception as e:
-                st.error(f"Gagal menghubungi AI: {e}")
+        prompt = f"Audit formula ini untuk kepatuhan IFRA Kategori 4: {df_merged[['Bahan', 'Persentase (%)', 'Status IFRA']].to_string()}"
+        try:
+            response = model.generate_content(prompt)
+            st.info(response.text)
+        except Exception as e:
+            st.error(f"Gagal menghubungi AI: {e}")
