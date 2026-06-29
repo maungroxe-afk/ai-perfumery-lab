@@ -447,3 +447,5 @@ with tab2:
         max_bottles_possible = [stok // vol if vol > 0 else float('inf') for _, stok, vol in stok_list]
         final_max_production = int(min(max_bottles_possible)) if max_bottles_possible else 0
         st.info(f"Kapasitas sisa stok gudang berjalan: {final_max_production} botol.")
+
+coba cek apakah kode ini bisa di optimalkan lagi? tambahkan fitur pengecekan otomatis by AI untuk analisis index inpact IFRA nya
