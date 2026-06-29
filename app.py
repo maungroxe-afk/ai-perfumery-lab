@@ -31,7 +31,7 @@ model = None
 if api_key_input:
     try:
         genai.configure(api_key=api_key_input)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
     except Exception as e:
         st.sidebar.error(f"API Key tidak valid: {e}")
 else:
