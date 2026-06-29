@@ -35,9 +35,8 @@ st.info(f"Target Total Konsentrat: **{target_konsentrat_ml:.2f} ML**")
 
 # --- 2. FORMULA INPUT ---
 st.subheader("📝 2. Input Persentase Bahan")
-st.markdown("Masukkan persentase masing-masing bahan. Sistem akan otomatis mengalkulasi takarannya.")
+st.markdown("Masukkan persentase masing-masing bahan. Sistem akan otomatis mengalkulasi takarannya dan mengecek batas IFRA.")
 
-# PELINDUNG ERROR: Memastikan memori memiliki kolom yang benar
 kolom_harapan = ["Bahan", "Persentase (%)", "Satuan Timbangan"]
 if "formula_df" not in st.session_state or list(st.session_state.formula_df.columns) != kolom_harapan:
     st.session_state.formula_df = pd.DataFrame(columns=kolom_harapan)
@@ -51,33 +50,52 @@ edited_df = st.data_editor(
     }
 )
 
-# --- 3. LOGIKA KALKULASI OTOMATIS ---
+# --- 3. LOGIKA KALKULASI & IFRA ---
 df_calc = edited_df.dropna(subset=["Bahan"]).copy()
 
-# PELINDUNG TAMBAHAN: Memastikan kolom ada sebelum diproses untuk menghindari KeyError
 if "Satuan Timbangan" in df_calc.columns:
     df_calc["Persentase (%)"] = pd.to_numeric(df_calc["Persentase (%)"], errors='coerce').fillna(0)
     df_calc["Satuan Timbangan"] = df_calc["Satuan Timbangan"].fillna("ml")
 
-    # Kalkulasi Volume Internal
+    # Kalkulasi Fisik
     df_calc["Volume Internal (ML)"] = (df_calc["Persentase (%)"] / 100) * target_konsentrat_ml
-
-    # Konversi untuk Timbangan
     def hitung_tampilan_fisik(row):
         if row["Satuan Timbangan"] == "g":
             return row["Volume Internal (ML)"] * 0.9
         return row["Volume Internal (ML)"]
-
     df_calc["Jumlah Dibutuhkan"] = df_calc.apply(hitung_tampilan_fisik, axis=1)
+
+    # --- PENGECEKAN IFRA ---
+    def get_ifra_info(nama):
+        # Gunakan lowercase untuk pencarian yang lebih kebal typo
+        if not db.empty:
+            match = db[db["Bahan"].str.lower() == str(nama).lower()]
+            if not match.empty:
+                return match.iloc[0]["Kategori"], match.iloc[0]["IFRA_Max"]
+        return "Custom/New", 100.0
+
+    df_calc[["Kategori", "Batas IFRA (%)"]] = df_calc["Bahan"].apply(lambda x: pd.Series(get_ifra_info(x)))
+    
+    # Cek apakah Persentase melebih batas IFRA
+    df_calc["Status IFRA"] = df_calc.apply(
+        lambda r: "✅ Aman" if r["Persentase (%)"] <= r["Batas IFRA (%)"] else "❌ OVER LIMIT", axis=1
+    )
 
     # --- 4. TAMPILAN ANALISA ---
     if not df_calc.empty:
         st.divider()
-        st.subheader("📊 3. Hasil Kalkulasi Racikan")
+        st.subheader("📊 3. Hasil Kalkulasi & Kepatuhan Regulasi")
         
-        tabel_tampil = df_calc[["Bahan", "Persentase (%)", "Jumlah Dibutuhkan", "Satuan Timbangan", "Volume Internal (ML)"]]
+        # Menyusun urutan kolom agar enak dibaca
+        tabel_tampil = df_calc[["Bahan", "Kategori", "Persentase (%)", "Batas IFRA (%)", "Jumlah Dibutuhkan", "Satuan Timbangan", "Status IFRA"]]
         st.dataframe(tabel_tampil, use_container_width=True, hide_index=True)
         
+        # Menampilkan peringatan jika ada yang melanggar
+        if "❌ OVER LIMIT" in df_calc["Status IFRA"].values:
+            st.error("⚠️ PERINGATAN: Terdapat bahan yang melampaui batas aman IFRA! Silakan kurangi persentase bahan tersebut.")
+        else:
+            st.success("✅ Seluruh komposisi berada di dalam batas aman regulasi IFRA.")
+
         total_persen = df_calc["Persentase (%)"].sum()
         total_ml_internal = df_calc["Volume Internal (ML)"].sum()
         
@@ -97,7 +115,8 @@ st.divider()
 st.subheader("🤖 4. AI Perfumer Assistant")
 if st.button("Analisa Formula"):
     try:
-        prompt = f"Formula Konsentrat: {df_calc[['Bahan', 'Persentase (%)']].to_string(index=False)}. Target Konsentrasi: {konsentrasi_target}. Analisa keseimbangan profil aroma ini dan berikan saran penyesuaian jika diperlukan."
+        # Kirim data ke AI termasuk status IFRA-nya
+        prompt = f"Formula: {df_calc[['Bahan', 'Kategori', 'Persentase (%)', 'Status IFRA']].to_string(index=False)}. Target: {konsentrasi_target}. Berikan analisa teknis mendalam mengenai keseimbangan notes dan saran jika ada bahan Custom/New."
         response = model.generate_content(prompt)
         st.info(response.text)
     except Exception as e:
