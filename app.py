@@ -60,7 +60,63 @@ else:
     api_key = st.sidebar.text_input("Google Gemini API Key", type="password")
 
 st.markdown("<hr>", unsafe_allow_html=True)
+# --- FUNGSI AI ---
+@st.cache_data
+def get_ai_complex_accords(materials_list, api_key_input):
+    if not api_key_input or not materials_list: return {}
+    client = genai.Client(api_key=api_key_input)
+    prompt = f"Kelompokkan bahan berikut ke dalam Main Accords (Maks 3): [{', '.join(materials_list)}]. Format JSON bersih: {{\"Bahan\": [\"Accords\"]}}"
+    response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+    return json.loads(response.text.replace("```json", "").replace("```", "").strip())
 
+@st.cache_data
+def check_ifra_compliance(materials_list, api_key_input):
+    client = genai.Client(api_key=api_key_input)
+    prompt = f"Analisis bahan berikut menurut standar IFRA 51: {', '.join(materials_list)}. Berikan list JSON: [{{'Bahan': '', 'Status': '', 'Max_Usage_%': '', 'Notes': ''}}]"
+    response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+    return json.loads(response.text.replace("```json", "").replace("```", "").strip())
+
+# --- DATA LOADING & FORMULASI ---
+st.header("Formulasi Dasar & Unggah Dokumen")
+col_g1, col_g2 = st.columns(2)
+with col_g1:
+    concentration_type = st.selectbox("Kategori Konsentrasi:", ["Custom", "Eau de Cologne (EDC - 3%)", "Eau de Toilette (EDT - 10%)", "Eau de Parfum (EDP - 20%)", "Extrait de Parfum (30%)"])
+    target_essential_oil = 3.0 if "EDC" in concentration_type else 10.0 if "EDT" in concentration_type else 20.0 if "EDP" in concentration_type else 30.0 if "Extrait" in concentration_type else 0.0
+    auto_scale = concentration_type != "Custom"
+with col_g2:
+    uploaded_file = st.file_uploader("Upload Data Bahan", type=["csv", "xlsx"])
+
+df_template = pd.DataFrame({
+    "Nama Raw Material": ["Ambroxan", "Bergamot Oil", "Jasmine Absolute"],
+    "Kategori Notes (Manual/Bebas)": ["Base Notes", "Top Notes", "Heart Notes"],
+    "Volume Dibeli (ml)": [10.0, 50.0, 50.0],
+    "Harga Beli (Rp)": [300000, 150000, 250000],
+    "Rasio Racikan (%)": [5.0, 10.0, 10.0]
+})
+
+edited_df = st.data_editor(df_template, num_rows="dynamic", use_container_width=True)
+edited_df["Modal per ml (Rp)"] = edited_df["Harga Beli (Rp)"] / edited_df["Volume Dibeli (ml)"]
+
+# --- TABS ---
+tab_chat, tab_enc, tab_ifra, tab_sec, tab0, tab1, tab2 = st.tabs([
+    "Asisten Copilot", "Analisis Accords", "🛡️ Audit IFRA", "Ensiklopedia", "Riset Harga", "Akuntansi", "Stok"
+])
+
+active_materials = edited_df[edited_df["Rasio Racikan (%)"] > 0]["Nama Raw Material"].tolist()
+
+# --- TAB IFRA COMPLIANCE ---
+with tab_ifra:
+    st.header("🛡️ Audit Keamanan & IFRA Compliance")
+    if st.button("Jalankan Audit Keamanan Otomatis"):
+        if not api_key: st.error("API Key diperlukan.")
+        else:
+            with st.spinner("Menganalisis profil toksikologi..."):
+                try:
+                    data = check_ifra_compliance(active_materials, api_key)
+                    st.table(pd.DataFrame(data))
+                    st.warning("Catatan: Gunakan hasil ini sebagai referensi, verifikasi dengan SDS resmi supplier.")
+                except Exception as e: st.error(f"Error: {e}")
+                    
 # --- 1. KONSENTRASI & UPLOAD DATA ---
 st.header("Formulasi Dasar & Unggah Dokumen")
 col_g1, col_g2 = st.columns(2)
