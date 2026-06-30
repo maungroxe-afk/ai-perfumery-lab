@@ -8,8 +8,8 @@ from supabase import create_client, Client
 # ==============================================================================
 # 1. KONFIGURASI SUPABASE (GANTI DENGAN KREDENSIAL PROYEK ANDA)
 # ==============================================================================
-SUPABASE_URL = "URL_PROYEK_SUPABASE_ANDA"
-SUPABASE_KEY = "API_KEY_ANON_SUPABASE_ANDA"
+SUPABASE_URL = "https://gsnkaocpxqccwgvyttbv.supabase.co"
+SUPABASE_KEY = "sb_publishable_OwoDrB5hvUEXJt6krNZAug_DD6bpLbJ"
 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
