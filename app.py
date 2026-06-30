@@ -8,7 +8,7 @@ from supabase import create_client, Client
 # ==============================================================================
 # 1. KONFIGURASI SUPABASE (GANTI DENGAN KREDENSIAL PROYEK ANDA)
 # ==============================================================================
-SUPABASE_URL = "https://gsnkaocpxqccwgvyttbv.supabase.co/rest/v1/"
+SUPABASE_URL = "https://gsnkaocpxqccwgvyttbv.supabase.co"
 SUPABASE_KEY = "sb_publishable_OwoDrB5hvUEXJt6krNZAug_DD6bpLbJ"
 
 try:
