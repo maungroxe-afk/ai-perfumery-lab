@@ -5,30 +5,28 @@ from google import genai
 import plotly.express as px
 from supabase import create_client, Client
 
-# --- 1. KONFIGURASI ---
-SUPABASE_URL = "URL_PROYEK_ANDA"
-SUPABASE_KEY = "KEY_PROYEK_ANDA"
+# --- KONFIGURASI ---
+SUPABASE_URL = "https://gsnkaocpxqccwgvyttbv.supabase.co"
+SUPABASE_KEY = "sb_publishable_OwoDrB5hvUEXJt6krNZAug_DD6bpLbJ"
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 st.set_page_config(page_title="Perfumer Studio Pro", layout="wide", page_icon="🧪")
 
-# --- 2. AUTHENTIKASI ---
+# --- AUTHENTIKASI ---
 if "user" not in st.session_state:
     try: st.session_state.user = supabase.auth.get_user()
     except: st.session_state.user = None
 
 if not st.session_state.user:
-    st.title("🔑 Perfumer Studio Pro - Login")
+    st.title("🔑 Akses Perfumer Studio Pro")
     email = st.text_input("Email"); password = st.text_input("Password", type="password")
-    if st.button("Masuk"):
-        try:
-            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-            st.session_state.user = res.user; st.rerun()
-        except Exception as e: st.error(f"Login Gagal: {e}")
+    if st.button("Login"): 
+        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        st.session_state.user = res.user; st.rerun()
     st.stop()
 
-# --- 3. FUNGSI DATABASE & AI ---
+# --- FUNGSI AI & DB ---
 @st.cache_data(ttl=3600)
-def check_ifra(materials, api_key):
+def get_ifra_limits(materials, api_key):
     try:
         client = genai.Client(api_key=api_key)
         prompt = f"Analisis bahan: {', '.join(materials)}. Berikan IFRA Limit (fine fragrance) format JSON: {{\"Bahan\": \"Limit %\"}}. Jika tidak ada 100%."
@@ -36,41 +34,36 @@ def check_ifra(materials, api_key):
         return json.loads(res.text.replace("```json", "").replace("```", "").strip())
     except: return None
 
-# --- 4. ANTARMUKA UTAMA ---
+# --- ANTARMUKA UTAMA ---
 st.title("Perfumer Studio Pro")
 api_key = st.sidebar.text_input("Gemini API Key", type="password")
 
 if "df_data" not in st.session_state:
-    st.session_state.df_data = pd.DataFrame({
-        "Nama Raw Material": ["Ambroxan", "Bergamot Oil"],
-        "Rasio Racikan (%)": [5.0, 10.0],
-        "Harga Beli (Rp)": [300000, 150000]
-    })
+    st.session_state.df_data = pd.DataFrame({"Nama Raw Material": ["Bergamot Oil"], "Rasio Racikan (%)": [15.0]})
 
-# PENGGABUNGAN SEMUA TAB
-tabs = st.tabs(["Editor & IFRA", "Cloud Manager", "Asisten Copilot", "Analisis Accords", "Ensiklopedia", "Riset Harga", "Akuntansi", "Gudang"])
+# --- OTOMATIS IFRA CHECK ---
+if api_key:
+    limits = get_ifra_limits(st.session_state.df_data["Nama Raw Material"].tolist(), api_key)
+    if limits:
+        for _, row in st.session_state.df_data.iterrows():
+            limit = float(limits.get(row["Nama Raw Material"], "100%").replace('%', ''))
+            if row["Rasio Racikan (%)"] > limit:
+                st.error(f"⚠️ PERINGATAN: {row['Nama Raw Material']} melebihi batas aman IFRA ({row['Rasio Racikan (%)']}% > {limit}%)")
 
-with tabs[0]: # Editor & IFRA Otomatis
-    st.session_state.df_data = st.data_editor(st.session_state.df_data, num_rows="dynamic", use_container_width=True)
-    if api_key:
-        limits = check_ifra(st.session_state.df_data["Nama Raw Material"].tolist(), api_key)
-        if limits:
-            for _, row in st.session_state.df_data.iterrows():
-                limit = float(limits.get(row["Nama Raw Material"], "100%").replace('%', ''))
-                if row["Rasio Racikan (%)"] > limit: st.error(f"⚠️ {row['Nama Raw Material']} melebihi limit {limit}%!")
-                else: st.success(f"✅ {row['Nama Raw Material']} aman")
+# TAB UTAMA
+tabs = st.tabs(["Editor", "Cloud Manager", "Asisten Copilot", "Analisis Accords", "Ensiklopedia", "Riset Harga", "Akuntansi", "Gudang"])
 
-with tabs[1]: # Cloud Manager
+with tabs[0]: # Editor
+    st.session_state.df_data = st.data_editor(st.session_state.df_data, num_rows="dynamic")
+
+with tabs[1]: # Cloud
     name = st.text_input("Nama Formula")
-    if st.button("Simpan Formula"):
+    if st.button("Simpan ke Cloud"):
         supabase.table("formulas").insert({"user_id": st.session_state.user.id, "name": name, "formula_data": st.session_state.df_data.to_json()}).execute()
         st.success("Tersimpan!")
-    formulas = supabase.table("formulas").select("*").eq("user_id", st.session_state.user.id).execute().data
-    for f in formulas:
-        if st.button(f"Muat: {f['name']}"):
-            st.session_state.df_data = pd.read_json(f['formula_data']); st.rerun()
 
-with tabs[2]: # Asisten Copilot
+# --- TAB 1: AI FRAGRANCE COPILOT MINIMALIS ELEGAN ---
+with tab_chat:
     st.header("Fragrance Copilot & Pyramid Notes")
     st.write("### Arsitektur Piramida Olfaktori Aktual")
     
@@ -158,7 +151,8 @@ with tabs[2]: # Asisten Copilot
                     st.rerun()
                 except Exception as e: st.sidebar.error(f"Kesalahan komunikasi sistem: {e}")
 
-with tabs[3]: # Analisis Accords
+# --- TAB ACCORDS PIE CHART ---
+with tab_enc:
     st.header("Analisis Kluster Roda Aroma")
     
     if not api_key:
@@ -204,8 +198,9 @@ with tabs[3]: # Analisis Accords
                     st.error("Data aroma tidak dapat dikelompokkan. Pastikan bahan baku sudah terisi dengan benar.")
             else:
                 st.error("Gagal mendapatkan respons dari sistem AI. Periksa koneksi API Anda.")
-
-with tabs[4]: # Ensiklopedia
+                
+# --- TAB ENSIKLOPEDIA ---
+with tab_sec:
     st.header("Ensiklopedia Komponen & Batas Regulasi")
     if not api_key: st.warning("Masukkan API Key.")
     else:
@@ -219,7 +214,8 @@ with tabs[4]: # Ensiklopedia
                     st.markdown(response.text)
                 except Exception as e: st.error(f"Eror: {e}")
 
-with tabs[5]: # Riset Harga
+# --- TAB RISET HARGA ---
+with tab0:
     st.header("Analisis Estimasi Nilai Pasar Bahan Baku")
     if not api_key: st.warning("Masukkan API Key.")
     else:
@@ -232,8 +228,10 @@ with tabs[5]: # Riset Harga
                     response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                     st.markdown(response.text)
                 except Exception as e: st.error(f"Eror: {e}")
-with tabs[6]: # Akuntansi
-     st.header("Kalkulasi Keuangan & Margin Laba Komersial")
+
+# --- TAB HPP & LABA ---
+with tab1:
+    st.header("Kalkulasi Keuangan & Margin Laba Komersial")
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         bottle_size = st.number_input("Ukuran Botol (ml)", min_value=5, value=50, key="bs")
@@ -287,4 +285,21 @@ with tabs[6]: # Akuntansi
     p_col2.metric(label="Estimasi Pendapatan Kotor", value=f"Rp {total_revenue:,.0f}")
     p_col3.metric(label="Estimasi Batas Net Profit", value=f"Rp {total_profit:,.0f}")
 
+# --- TAB STOCK GUDANG ---
+with tab2:
+    st.header("Optimasi Bahan & Neraca Gudang")
+    stok_list = []
+    opt_cols = st.columns(2)
+    count = 0
+    for idx, row in edited_df.iterrows():
+        if row["Vol Needed per Bottle (ml)"] > 0:
+            current_col = opt_cols[0] if count % 2 == 0 else opt_cols[1]
+            user_stok = current_col.number_input(f"Sisa Stok Gudang Berjalan: {row['Nama Raw Material']} (ml)", min_value=0.0, value=float(row['Volume Dibeli (ml)']), key=f"stok_v23_{idx}")
+            stok_list.append((row['Nama Raw Material'], user_stok, row['Vol Needed per Bottle (ml)']))
+            count += 1
+    if stok_list:
+        max_bottles_possible = [stok // vol if vol > 0 else float('inf') for _, stok, vol in stok_list]
+        final_max_production = int(min(max_bottles_possible)) if max_bottles_possible else 0
+        st.info(f"Kapasitas sisa stok gudang berjalan: {final_max_production} botol.")
+        
 if st.sidebar.button("Logout"): supabase.auth.sign_out(); st.rerun()
