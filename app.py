@@ -256,7 +256,37 @@ edited_df["Modal per ml (Rp)"] = edited_df["Harga Beli (Rp)"] / edited_df["Volum
 total_percentage = edited_df["Rasio Racikan (%)"].sum()
 
 # ==============================================================================
-# 5.5 PENGECEKAN KEAMANAN IFRA (OTOMATIS AI) DITAMBAHKAN DI SINI
+# 5.1 LOGIKA OTOMATISASI KONSENTRASI PARFUM (DIPINDAHKAN KE ATAS UNTUK IFRA)
+# ==============================================================================
+fragrance_mask = edited_df["Kategori Notes (Manual/Bebas)"].isin(["Top Notes", "Heart Notes", "Base Notes"])
+solvent_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Solvent / Pelarut"
+fixative_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Fixative / Pengikat"
+
+total_fragrance_tabel_pct = edited_df.loc[fragrance_mask, "Rasio Racikan (%)"].sum()
+total_solvent_tabel_pct = edited_df.loc[solvent_mask, "Rasio Racikan (%)"].sum()
+total_fixative_tabel_pct = edited_df.loc[fixative_mask, "Rasio Racikan (%)"].sum()
+
+bottle_size_actual = 50.0
+
+edited_df["Vol Needed per Bottle (ml)"] = 0.0
+if auto_scale and total_fragrance_tabel_pct > 0:
+    target_non_fragrance = 100.0 - target_essential_oil
+    for idx, row in edited_df[fragrance_mask].iterrows():
+        kontribusi = row["Rasio Racikan (%)"] / total_fragrance_tabel_pct
+        edited_df.at[idx, "Vol Needed per Bottle (ml)"] = (kontribusi * target_essential_oil / 100.0) * bottle_size_actual
+    total_support_pct = total_solvent_tabel_pct + total_fixative_tabel_pct
+    if total_support_pct > 0:
+        for idx, row in edited_df[solvent_mask | fixative_mask].iterrows():
+            kontribusi = row["Rasio Racikan (%)"] / total_support_pct
+            edited_df.at[idx, "Vol Needed per Bottle (ml)"] = (kontribusi * target_non_fragrance / 100.0) * bottle_size_actual
+else:
+    edited_df["Vol Needed per Bottle (ml)"] = (edited_df["Rasio Racikan (%)"] / 100.0) * bottle_size_actual
+
+# INILAH NILAI PERSENTASE DI PRODUK JADI YANG AKAN DICEK OLEH IFRA
+edited_df["Persentase Aktual Di Botol (%)"] = (edited_df["Vol Needed per Bottle (ml)"] / bottle_size_actual) * 100
+
+# ==============================================================================
+# 5.5 PENGECEKAN KEAMANAN IFRA (BERDASARKAN PRODUK JADI)
 # ==============================================================================
 @st.cache_data(ttl=3600)
 def check_ifra_safety(materials_list, api_key_input):
@@ -272,13 +302,13 @@ def check_ifra_safety(materials_list, api_key_input):
         return None
 
 if api_key:
-    active_mats = edited_df[edited_df["Rasio Racikan (%)"] > 0]["Nama Raw Material"].tolist()
+    active_mats = edited_df[edited_df["Persentase Aktual Di Botol (%)"] > 0]["Nama Raw Material"].tolist()
     if active_mats:
-        with st.spinner("AI sedang memverifikasi batas aman IFRA..."):
+        with st.spinner("AI sedang memverifikasi batas aman IFRA berdasarkan produk jadi..."):
             ifra_limits = check_ifra_safety(active_mats, api_key)
             if ifra_limits:
                 has_warning = False
-                for _, row in edited_df[edited_df["Rasio Racikan (%)"] > 0].iterrows():
+                for _, row in edited_df[edited_df["Persentase Aktual Di Botol (%)"] > 0].iterrows():
                     bahan = row["Nama Raw Material"]
                     limit_str = ifra_limits.get(bahan, "100%")
                     try:
@@ -286,12 +316,15 @@ if api_key:
                     except ValueError:
                         limit_val = 100.0
                     
-                    if row["Rasio Racikan (%)"] > limit_val:
-                        st.error(f"⚠️ PERINGATAN IFRA: '{bahan}' melebihi batas aman! (Kadar Anda: {row['Rasio Racikan (%)']}% | Batas Maksimal: {limit_val}%)")
+                    # LOGIKA DIPERBAIKI: Mengecek kadar di Produk Akhir (Botol), BUKAN rasio konsentrat
+                    kadar_aktual = row["Persentase Aktual Di Botol (%)"]
+                    
+                    if kadar_aktual > limit_val:
+                        st.error(f"⚠️ PERINGATAN IFRA: '{bahan}' melebihi batas aman! (Kadar di Produk Jadi: {kadar_aktual:.2f}% | Batas Maksimal: {limit_val}%)")
                         has_warning = True
                 
                 if not has_warning:
-                    st.success("✅ Seluruh komposisi bahan yang aktif memenuhi standar aman IFRA.")
+                    st.success("✅ Seluruh komposisi bahan di dalam produk jadi telah memenuhi standar aman IFRA.")
 
 # ==============================================================================
 # 6. EXPANDER: MANAJEMEN PENYIMPANAN CLOUD DATABASE
@@ -351,33 +384,6 @@ def get_ai_complex_accords(materials_list, api_key_input):
     except Exception as e:
         st.sidebar.error(f"Koneksi API Gagal: {str(e)}")
         return None
-
-# --- ⚙️ LOGIKA OTOMATISASI KONSENTRASI PARFUM ---
-fragrance_mask = edited_df["Kategori Notes (Manual/Bebas)"].isin(["Top Notes", "Heart Notes", "Base Notes"])
-solvent_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Solvent / Pelarut"
-fixative_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Fixative / Pengikat"
-
-total_fragrance_tabel_pct = edited_df.loc[fragrance_mask, "Rasio Racikan (%)"].sum()
-total_solvent_tabel_pct = edited_df.loc[solvent_mask, "Rasio Racikan (%)"].sum()
-total_fixative_tabel_pct = edited_df.loc[fixative_mask, "Rasio Racikan (%)"].sum()
-
-bottle_size_actual = 50.0
-
-edited_df["Vol Needed per Bottle (ml)"] = 0.0
-if auto_scale and total_fragrance_tabel_pct > 0:
-    target_non_fragrance = 100.0 - target_essential_oil
-    for idx, row in edited_df[fragrance_mask].iterrows():
-        kontribusi = row["Rasio Racikan (%)"] / total_fragrance_tabel_pct
-        edited_df.at[idx, "Vol Needed per Bottle (ml)"] = (kontribusi * target_essential_oil / 100.0) * bottle_size_actual
-    total_support_pct = total_solvent_tabel_pct + total_fixative_tabel_pct
-    if total_support_pct > 0:
-        for idx, row in edited_df[solvent_mask | fixative_mask].iterrows():
-            kontribusi = row["Rasio Racikan (%)"] / total_support_pct
-            edited_df.at[idx, "Vol Needed per Bottle (ml)"] = (kontribusi * target_non_fragrance / 100.0) * bottle_size_actual
-else:
-    edited_df["Vol Needed per Bottle (ml)"] = (edited_df["Rasio Racikan (%)"] / 100.0) * bottle_size_actual
-
-edited_df["Persentase Aktual Di Botol (%)"] = (edited_df["Vol Needed per Bottle (ml)"] / bottle_size_actual) * 100
 
 # --- TABS LAYOUT MINIMALIS ---
 tab_chat, tab_enc, tab_sec, tab0, tab1, tab2 = st.tabs([
