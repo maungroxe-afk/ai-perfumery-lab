@@ -4,8 +4,8 @@ import json
 from supabase import create_client
 
 # KONFIGURASI SUPABASE
-SUPABASE_URL = "URL_ANDA_DISINI"
-SUPABASE_KEY = "KEY_ANDA_DISINI"
+SUPABASE_URL = "https://gsnkaocpxqccwgvyttbv.supabase.co"
+SUPABASE_KEY = "sb_publishable_OwoDrB5hvUEXJt6krNZAug_DD6bpLbJ"
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Perfumer Studio Pro", layout="wide")
