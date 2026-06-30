@@ -6,7 +6,7 @@ import plotly.express as px
 from supabase import create_client, Client
 
 # ==============================================================================
-# 1. KONFIGURASI SUPABASE (GANTI DENGAN KREDENSIAL PROYEK ANDA)
+# 1. KONFIGURASI SUPABASE (KREDENSIAL PROYEK ANDA)
 # ==============================================================================
 SUPABASE_URL = "https://gsnkaocpxqccwgvyttbv.supabase.co"
 SUPABASE_KEY = "sb_publishable_OwoDrB5hvUEXJt6krNZAug_DD6bpLbJ"
@@ -256,7 +256,7 @@ edited_df["Modal per ml (Rp)"] = edited_df["Harga Beli (Rp)"] / edited_df["Volum
 total_percentage = edited_df["Rasio Racikan (%)"].sum()
 
 # ==============================================================================
-# 5.1 LOGIKA OTOMATISASI KONSENTRASI PARFUM (DIPINDAHKAN KE ATAS UNTUK IFRA)
+# LOGIKA OTOMATISASI KONSENTRASI PARFUM (DIPINDAHKAN KE ATAS DEMI AKURASI IFRA)
 # ==============================================================================
 fragrance_mask = edited_df["Kategori Notes (Manual/Bebas)"].isin(["Top Notes", "Heart Notes", "Base Notes"])
 solvent_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Solvent / Pelarut"
@@ -282,11 +282,10 @@ if auto_scale and total_fragrance_tabel_pct > 0:
 else:
     edited_df["Vol Needed per Bottle (ml)"] = (edited_df["Rasio Racikan (%)"] / 100.0) * bottle_size_actual
 
-# INILAH NILAI PERSENTASE DI PRODUK JADI YANG AKAN DICEK OLEH IFRA
 edited_df["Persentase Aktual Di Botol (%)"] = (edited_df["Vol Needed per Bottle (ml)"] / bottle_size_actual) * 100
 
 # ==============================================================================
-# 5.5 PENGECEKAN KEAMANAN IFRA (BERDASARKAN PRODUK JADI)
+# PENGECEKAN KEAMANAN IFRA AUTOMATIC AI (KUMULATIF PRODUK JADI DI ATAS TAB)
 # ==============================================================================
 @st.cache_data(ttl=3600)
 def check_ifra_safety(materials_list, api_key_input):
@@ -295,20 +294,30 @@ def check_ifra_safety(materials_list, api_key_input):
     try:
         client = genai.Client(api_key=api_key_input)
         materials_str = ", ".join(materials_list)
-        prompt = f"Analisis bahan parfum: {materials_str}. Berikan batas aman IFRA kategori fine fragrance dalam persentase format JSON: {{\\\"Nama Bahan\\\": \\\"Limit %\\\"}}. Jika aman/tidak dibatasi, tulis 100%. Output HANYA JSON valid tanpa teks markdown."
+        prompt = f"""
+        Analisis bahan parfum: {materials_str}. 
+        Berikan batas aman IFRA kategori fine fragrance dalam persentase format JSON: {{"Nama Bahan": "Limit %"}}. 
+        PENTING: 
+        1. Gunakan nama bahan PERSIS seperti yang diinput, jangan diubah ejaannya.
+        2. Jika aman/tidak dibatasi, tulis "100%". 
+        3. Output HANYA JSON valid tanpa teks markdown.
+        """
         response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         return json.loads(response.text.replace("```json", "").replace("```", "").strip())
     except Exception:
         return None
 
 if api_key:
-    active_mats = edited_df[edited_df["Persentase Aktual Di Botol (%)"] > 0]["Nama Raw Material"].tolist()
-    if active_mats:
-        with st.spinner("AI sedang memverifikasi batas aman IFRA berdasarkan produk jadi..."):
+    active_df = edited_df[edited_df["Persentase Aktual Di Botol (%)"] > 0]
+    if not active_df.empty:
+        akumulasi_bahan = active_df.groupby("Nama Raw Material")["Persentase Aktual Di Botol (%)"].sum().reset_index()
+        active_mats = akumulasi_bahan["Nama Raw Material"].tolist()
+        
+        with st.spinner("AI sedang memverifikasi total kumulatif batas aman IFRA pada produk jadi..."):
             ifra_limits = check_ifra_safety(active_mats, api_key)
             if ifra_limits:
                 has_warning = False
-                for _, row in edited_df[edited_df["Persentase Aktual Di Botol (%)"] > 0].iterrows():
+                for _, row in akumulasi_bahan.iterrows():
                     bahan = row["Nama Raw Material"]
                     limit_str = ifra_limits.get(bahan, "100%")
                     try:
@@ -316,15 +325,14 @@ if api_key:
                     except ValueError:
                         limit_val = 100.0
                     
-                    # LOGIKA DIPERBAIKI: Mengecek kadar di Produk Akhir (Botol), BUKAN rasio konsentrat
                     kadar_aktual = row["Persentase Aktual Di Botol (%)"]
                     
                     if kadar_aktual > limit_val:
-                        st.error(f"⚠️ PERINGATAN IFRA: '{bahan}' melebihi batas aman! (Kadar di Produk Jadi: {kadar_aktual:.2f}% | Batas Maksimal: {limit_val}%)")
+                        st.error(f"⚠️ PERINGATAN IFRA: '{bahan}' melebihi batas aman! (Total kumulatif di Produk Jadi: {kadar_aktual:.2f}% | Batas Maksimal IFRA: {limit_val}%)")
                         has_warning = True
                 
                 if not has_warning:
-                    st.success("✅ Seluruh komposisi bahan di dalam produk jadi telah memenuhi standar aman IFRA.")
+                    st.success("✅ Seluruh total komposisi bahan di dalam produk jadi telah memenuhi standar aman IFRA.")
 
 # ==============================================================================
 # 6. EXPANDER: MANAJEMEN PENYIMPANAN CLOUD DATABASE
@@ -360,7 +368,7 @@ with st.expander("💾 Manajemen Penyimpanan Database Formula Cloud"):
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# --- FUNGSI CACHE AI ---
+# --- FUNGSI CACHE AI ANCHOR ---
 @st.cache_data(ttl=3600)
 def get_ai_complex_accords(materials_list, api_key_input):
     if not api_key_input or not materials_list:
