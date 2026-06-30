@@ -69,33 +69,52 @@ if not st.session_state.user or not hasattr(st.session_state.user, 'id'):
 # ==============================================================================
 def save_formula_to_db(name, df):
     try:
+        # Mengambil ID dari sesi user yang sudah login
+        user_id = st.session_state.user.id
+        
         data = {
-            "user_id": st.session_state.user.id,
+            "user_id": user_id,
             "name": name,
             "formula_data": df.to_json()
         }
-        supabase.table("formulas").insert(data).execute()
-        st.success(f"Formula '{name}' berhasil disimpan ke database cloud!")
+        
+        # Eksekusi insert
+        response = supabase.table("formulas").insert(data).execute()
+        st.success(f"Formula '{name}' tersimpan!")
     except Exception as e:
-        st.error(f"Gagal menyimpan formula: {e}")
+        st.error(f"Error Database: {e}")
 
 def get_user_formulas():
     try:
+        # Mengambil hanya data milik user yang sedang login
         res = supabase.table("formulas").select("*").eq("user_id", st.session_state.user.id).execute()
         return res.data
-    except Exception as e:
-        st.sidebar.error(f"Gagal mengambil daftar formula: {e}")
+    except:
         return []
 
-def load_formula_from_db(formula_id):
-    try:
-        res = supabase.table("formulas").select("formula_data").eq("id", formula_id).single().execute()
-        if res.data:
-            return pd.read_json(res.data['formula_data'])
-    except Exception as e:
-        st.error(f"Gagal memuat detail data dari database: {e}")
-    return None
+# ANTARMUKA FORMULASI
+st.sidebar.write(f"Login: {st.session_state.user.email}")
+if st.sidebar.button("Logout"):
+    supabase.auth.sign_out()
+    st.session_state.user = None
+    st.rerun()
 
+st.title("Perfumer Studio Pro")
+
+# Contoh penggunaan di aplikasi
+if "df_template" not in st.session_state:
+    st.session_state.df_template = pd.DataFrame({"Bahan": ["A", "B"], "Persen": [50, 50]})
+
+edited_df = st.data_editor(st.session_state.df_template)
+
+name = st.text_input("Nama Formula")
+if st.button("Simpan Formula"):
+    save_formula_to_db(name, edited_df)
+
+st.subheader("Riwayat Formula Anda")
+formulas = get_user_formulas()
+for f in formulas:
+    st.write(f"- {f['name']} (Dibuat: {f['created_at']})")
 # ==============================================================================
 # 4. CUSTOM CSS UNTUK TEMA MINIMALIS & MEWAH
 # ==============================================================================
