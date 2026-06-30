@@ -6,7 +6,7 @@ import plotly.express as px
 from supabase import create_client, Client
 
 # ==============================================================================
-# 1. KONFIGURASI SUPABASE (KREDENSIAL PROYEK ANDA)
+# 1. KONFIGURASI SUPABASE (GANTI DENGAN KREDENSIAL PROYEK ANDA)
 # ==============================================================================
 SUPABASE_URL = "https://gsnkaocpxqccwgvyttbv.supabase.co"
 SUPABASE_KEY = "sb_publishable_OwoDrB5hvUEXJt6krNZAug_DD6bpLbJ"
@@ -253,86 +253,8 @@ edited_df["Volume Dibeli (ml)"] = pd.to_numeric(edited_df["Volume Dibeli (ml)"],
 edited_df["Harga Beli (Rp)"] = pd.to_numeric(edited_df["Harga Beli (Rp)"], errors='coerce').fillna(0.0)
 edited_df["Rasio Racikan (%)"] = pd.to_numeric(edited_df["Rasio Racikan (%)"], errors='coerce').fillna(0.0)
 edited_df["Modal per ml (Rp)"] = edited_df["Harga Beli (Rp)"] / edited_df["Volume Dibeli (ml)"]
+
 total_percentage = edited_df["Rasio Racikan (%)"].sum()
-
-# ==============================================================================
-# LOGIKA OTOMATISASI KONSENTRASI PARFUM (DIPINDAHKAN KE ATAS DEMI AKURASI IFRA)
-# ==============================================================================
-fragrance_mask = edited_df["Kategori Notes (Manual/Bebas)"].isin(["Top Notes", "Heart Notes", "Base Notes"])
-solvent_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Solvent / Pelarut"
-fixative_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Fixative / Pengikat"
-
-total_fragrance_tabel_pct = edited_df.loc[fragrance_mask, "Rasio Racikan (%)"].sum()
-total_solvent_tabel_pct = edited_df.loc[solvent_mask, "Rasio Racikan (%)"].sum()
-total_fixative_tabel_pct = edited_df.loc[fixative_mask, "Rasio Racikan (%)"].sum()
-
-bottle_size_actual = 50.0
-
-edited_df["Vol Needed per Bottle (ml)"] = 0.0
-if auto_scale and total_fragrance_tabel_pct > 0:
-    target_non_fragrance = 100.0 - target_essential_oil
-    for idx, row in edited_df[fragrance_mask].iterrows():
-        kontribusi = row["Rasio Racikan (%)"] / total_fragrance_tabel_pct
-        edited_df.at[idx, "Vol Needed per Bottle (ml)"] = (kontribusi * target_essential_oil / 100.0) * bottle_size_actual
-    total_support_pct = total_solvent_tabel_pct + total_fixative_tabel_pct
-    if total_support_pct > 0:
-        for idx, row in edited_df[solvent_mask | fixative_mask].iterrows():
-            kontribusi = row["Rasio Racikan (%)"] / total_support_pct
-            edited_df.at[idx, "Vol Needed per Bottle (ml)"] = (kontribusi * target_non_fragrance / 100.0) * bottle_size_actual
-else:
-    edited_df["Vol Needed per Bottle (ml)"] = (edited_df["Rasio Racikan (%)"] / 100.0) * bottle_size_actual
-
-edited_df["Persentase Aktual Di Botol (%)"] = (edited_df["Vol Needed per Bottle (ml)"] / bottle_size_actual) * 100
-
-# ==============================================================================
-# PENGECEKAN KEAMANAN IFRA AUTOMATIC AI (KUMULATIF PRODUK JADI DI ATAS TAB)
-# ==============================================================================
-@st.cache_data(ttl=3600)
-def check_ifra_safety(materials_list, api_key_input):
-    if not api_key_input or not materials_list:
-        return None
-    try:
-        client = genai.Client(api_key=api_key_input)
-        materials_str = ", ".join(materials_list)
-        prompt = f"""
-        Analisis bahan parfum: {materials_str}. 
-        Berikan batas aman IFRA kategori fine fragrance dalam persentase format JSON: {{"Nama Bahan": "Limit %"}}. 
-        PENTING: 
-        1. Gunakan nama bahan PERSIS seperti yang diinput, jangan diubah ejaannya.
-        2. Jika aman/tidak dibatasi, tulis "100%". 
-        3. Output HANYA JSON valid tanpa teks markdown.
-        """
-        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-        return json.loads(response.text.replace("```json", "").replace("```", "").strip())
-    except Exception:
-        return None
-
-if api_key:
-    active_df = edited_df[edited_df["Persentase Aktual Di Botol (%)"] > 0]
-    if not active_df.empty:
-        akumulasi_bahan = active_df.groupby("Nama Raw Material")["Persentase Aktual Di Botol (%)"].sum().reset_index()
-        active_mats = akumulasi_bahan["Nama Raw Material"].tolist()
-        
-        with st.spinner("AI sedang memverifikasi total kumulatif batas aman IFRA pada produk jadi..."):
-            ifra_limits = check_ifra_safety(active_mats, api_key)
-            if ifra_limits:
-                has_warning = False
-                for _, row in akumulasi_bahan.iterrows():
-                    bahan = row["Nama Raw Material"]
-                    limit_str = ifra_limits.get(bahan, "100%")
-                    try:
-                        limit_val = float(str(limit_str).replace('%', '').strip())
-                    except ValueError:
-                        limit_val = 100.0
-                    
-                    kadar_aktual = row["Persentase Aktual Di Botol (%)"]
-                    
-                    if kadar_aktual > limit_val:
-                        st.error(f"⚠️ PERINGATAN IFRA: '{bahan}' melebihi batas aman! (Total kumulatif di Produk Jadi: {kadar_aktual:.2f}% | Batas Maksimal IFRA: {limit_val}%)")
-                        has_warning = True
-                
-                if not has_warning:
-                    st.success("✅ Seluruh total komposisi bahan di dalam produk jadi telah memenuhi standar aman IFRA.")
 
 # ==============================================================================
 # 6. EXPANDER: MANAJEMEN PENYIMPANAN CLOUD DATABASE
@@ -368,7 +290,7 @@ with st.expander("💾 Manajemen Penyimpanan Database Formula Cloud"):
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# --- FUNGSI CACHE AI ANCHOR ---
+# --- FUNGSI CACHE AI ---
 @st.cache_data(ttl=3600)
 def get_ai_complex_accords(materials_list, api_key_input):
     if not api_key_input or not materials_list:
@@ -392,6 +314,33 @@ def get_ai_complex_accords(materials_list, api_key_input):
     except Exception as e:
         st.sidebar.error(f"Koneksi API Gagal: {str(e)}")
         return None
+
+# --- ⚙️ LOGIKA OTOMATISASI KONSENTRASI PARFUM ---
+fragrance_mask = edited_df["Kategori Notes (Manual/Bebas)"].isin(["Top Notes", "Heart Notes", "Base Notes"])
+solvent_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Solvent / Pelarut"
+fixative_mask = edited_df["Kategori Notes (Manual/Bebas)"] == "Fixative / Pengikat"
+
+total_fragrance_tabel_pct = edited_df.loc[fragrance_mask, "Rasio Racikan (%)"].sum()
+total_solvent_tabel_pct = edited_df.loc[solvent_mask, "Rasio Racikan (%)"].sum()
+total_fixative_tabel_pct = edited_df.loc[fixative_mask, "Rasio Racikan (%)"].sum()
+
+bottle_size_actual = 50.0
+
+edited_df["Vol Needed per Bottle (ml)"] = 0.0
+if auto_scale and total_fragrance_tabel_pct > 0:
+    target_non_fragrance = 100.0 - target_essential_oil
+    for idx, row in edited_df[fragrance_mask].iterrows():
+        kontribusi = row["Rasio Racikan (%)"] / total_fragrance_tabel_pct
+        edited_df.at[idx, "Vol Needed per Bottle (ml)"] = (kontribusi * target_essential_oil / 100.0) * bottle_size_actual
+    total_support_pct = total_solvent_tabel_pct + total_fixative_tabel_pct
+    if total_support_pct > 0:
+        for idx, row in edited_df[solvent_mask | fixative_mask].iterrows():
+            kontribusi = row["Rasio Racikan (%)"] / total_support_pct
+            edited_df.at[idx, "Vol Needed per Bottle (ml)"] = (kontribusi * target_non_fragrance / 100.0) * bottle_size_actual
+else:
+    edited_df["Vol Needed per Bottle (ml)"] = (edited_df["Rasio Racikan (%)"] / 100.0) * bottle_size_actual
+
+edited_df["Persentase Aktual Di Botol (%)"] = (edited_df["Vol Needed per Bottle (ml)"] / bottle_size_actual) * 100
 
 # --- TABS LAYOUT MINIMALIS ---
 tab_chat, tab_enc, tab_sec, tab0, tab1, tab2 = st.tabs([
