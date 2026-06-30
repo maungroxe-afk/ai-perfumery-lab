@@ -1,85 +1,101 @@
 import streamlit as st
 import pandas as pd
 import json
-from supabase import create_client
+from google import genai
+import plotly.express as px
+from supabase import create_client, Client
 
-# KONFIGURASI SUPABASE
-SUPABASE_URL = "https://gsnkaocpxqccwgvyttbv.supabase.co"
-SUPABASE_KEY = "sb_publishable_OwoDrB5hvUEXJt6krNZAug_DD6bpLbJ"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# ==============================================================================
+# 1. KONFIGURASI SUPABASE (GANTI DENGAN KREDENSIAL PROYEK ANDA)
+# ==============================================================================
+SUPABASE_URL = "URL_PROYEK_SUPABASE_ANDA"
+SUPABASE_KEY = "API_KEY_ANON_SUPABASE_ANDA"
 
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    st.error(f"Gagal inisialisasi Supabase. Periksa URL dan Key Anda. Error: {e}")
+
+# Konfigurasi halaman dasar
 st.set_page_config(page_title="Perfumer Studio Pro", layout="wide")
 
-# AUTENTIKASI PERSISTEN
+# ==============================================================================
+# 2. SISTEM MANAJEMEN SESI & AUTENTIKASI PENGGUNA
+# ==============================================================================
 if "user" not in st.session_state:
-    st.session_state.user = None
+    try:
+        # Coba ambil session aktif yang tersimpan otomatis di browser cache
+        st.session_state.user = supabase.auth.get_user()
+    except:
+        st.session_state.user = None
 
 def login(email, password):
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state.user = res.user
+        st.success("Login Berhasil!")
         st.rerun()
     except Exception as e:
         st.error(f"Login Gagal: {e}")
 
-# TAMPILAN LOGIN
-if not st.session_state.user:
-    st.title("Perfumer Studio - Login")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        login(email, password)
-    st.stop()
+def sign_up(email, password):
+    try:
+        supabase.auth.sign_up({"email": email, "password": password})
+        st.success("Akun berhasil dibuat! Silakan langsung login menggunakan akun tersebut.")
+    except Exception as e:
+        st.error(f"Pendaftaran Gagal: {e}")
 
-# FUNGSI DATABASE YANG DIPERBAIKI
+# Tampilan Halaman Login / Registrasi jika belum terautentikasi
+if not st.session_state.user or not hasattr(st.session_state.user, 'id'):
+    st.title("🔑 Akses Perfumer Studio Pro")
+    tab_auth1, tab_auth2 = st.tabs(["Masuk (Login)", "Daftar Akun Baru"])
+    
+    with tab_auth1:
+        email_input = st.text_input("Email", key="login_email_auth")
+        pass_input = st.text_input("Password", type="password", key="login_pass_auth")
+        if st.button("Masuk", use_container_width=True):
+            login(email_input, pass_input)
+            
+    with tab_auth2:
+        new_email = st.text_input("Email Baru", key="reg_email_auth")
+        new_pass = st.text_input("Password Baru", type="password", key="reg_pass_auth")
+        if st.button("Daftar Sekarang", use_container_width=True):
+            sign_up(new_email, new_pass)
+            
+    st.stop() # Menghentikan rendering sisa aplikasi jika belum login
+
+# ==============================================================================
+# 3. FUNGSI DATABASE (SIMPAN, AMBIL, & MUAT FORMULA)
+# ==============================================================================
 def save_formula_to_db(name, df):
     try:
-        # Mengambil ID dari sesi user yang sudah login
-        user_id = st.session_state.user.id
-        
         data = {
-            "user_id": user_id,
+            "user_id": st.session_state.user.id,
             "name": name,
             "formula_data": df.to_json()
         }
-        
-        # Eksekusi insert
-        response = supabase.table("formulas").insert(data).execute()
-        st.success(f"Formula '{name}' tersimpan!")
+        supabase.table("formulas").insert(data).execute()
+        st.success(f"Formula '{name}' berhasil disimpan ke database cloud!")
     except Exception as e:
-        st.error(f"Error Database: {e}")
+        st.error(f"Gagal menyimpan formula: {e}")
 
 def get_user_formulas():
     try:
-        # Mengambil hanya data milik user yang sedang login
         res = supabase.table("formulas").select("*").eq("user_id", st.session_state.user.id).execute()
         return res.data
-    except:
+    except Exception as e:
+        st.sidebar.error(f"Gagal mengambil daftar formula: {e}")
         return []
 
-# ANTARMUKA FORMULASI
-st.sidebar.write(f"Login: {st.session_state.user.email}")
-if st.sidebar.button("Logout"):
-    supabase.auth.sign_out()
-    st.session_state.user = None
-    st.rerun()
+def load_formula_from_db(formula_id):
+    try:
+        res = supabase.table("formulas").select("formula_data").eq("id", formula_id).single().execute()
+        if res.data:
+            return pd.read_json(res.data['formula_data'])
+    except Exception as e:
+        st.error(f"Gagal memuat detail data dari database: {e}")
+    return None
 
-st.title("Perfumer Studio Pro")
-
-# Contoh penggunaan di aplikasi
-if "df_template" not in st.session_state:
-    st.session_state.df_template = pd.DataFrame({"Bahan": ["A", "B"], "Persen": [50, 50]})
-
-edited_df = st.data_editor(st.session_state.df_template)
-
-name = st.text_input("Nama Formula")
-if st.button("Simpan Formula"):
-    save_formula_to_db(name, edited_df)
-
-st.subheader("Riwayat Formula Anda")
-formulas = get_user_formulas()
-for f in formulas:
-    st.write(f"- {f['name']} (Dibuat: {f['created_at']})")
 # ==============================================================================
 # 4. CUSTOM CSS UNTUK TEMA MINIMALIS & MEWAH
 # ==============================================================================
