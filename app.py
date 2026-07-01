@@ -1,7 +1,7 @@
 import streamlit as st                                                                                        
-  import pandas as pd                                                                                           
-  import google.generativeai as genai                                                                           
-  import os                                                                                                     
+import pandas as pd                                                                                           
+import google.generativeai as genai                                                                           
+import os                                                                                                     
                                                                                                                 
   # --- KONFIGURASI HALAMAN ---                                                                                 
   st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="wide")                          
