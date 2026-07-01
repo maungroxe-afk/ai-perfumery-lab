@@ -30,7 +30,6 @@ tab_formula, tab_ai, tab_db = st.tabs(["⚖️ Kalkulator Formulasi", "🤖 AI P
 with tab_formula:
     st.header("Kalkulator Formulasi Parfum")
     
-    # Pengaturan Target Parfum
     st.subheader("1. Pengaturan Target Produk Akhir")
     col_target1, col_target2 = st.columns(2)
     with col_target1:
@@ -67,7 +66,6 @@ with tab_formula:
             st.session_state.formula.append({"Bahan": bahan_pilihan, "Input": jumlah_bahan})
             st.success(f"{bahan_pilihan} ditambahkan!")
 
-        # Tampilkan Formula dan Analisis
         if st.session_state.formula:
             df_formula = pd.DataFrame(st.session_state.formula)
             df_formula = df_formula.groupby("Bahan", as_index=False).sum()
@@ -115,7 +113,6 @@ with tab_formula:
                 .map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"])
             )
             
-            # --- FITUR BARU: KELOLA & HAPUS BAHAN ---
             st.markdown("---")
             st.subheader("🛠️ Kelola Formula")
             
@@ -125,10 +122,9 @@ with tab_formula:
             with col_del1:
                 bahan_hapus = st.selectbox("Pilih bahan yang ingin dikeluarkan:", bahan_dalam_formula)
             with col_del2:
-                st.write("") # Memberi jarak spasi agar tombol sejajar dengan kotak input
+                st.write("") 
                 st.write("")
                 if st.button("🗑️ Hapus Bahan Ini"):
-                    # Menghapus bahan yang dipilih dari session state
                     st.session_state.formula = [item for item in st.session_state.formula if item["Bahan"] != bahan_hapus]
                     st.rerun()
             with col_del3:
@@ -138,7 +134,6 @@ with tab_formula:
                     st.session_state.formula = []
                     st.rerun()
 
-            # --- VISUALISASI DIAGRAM AROMA LINGKARAN ---
             st.markdown("---")
             st.subheader("🕸️ Visualisasi Profil Aroma (Olfactory Accord)")
             
@@ -181,16 +176,46 @@ with tab_formula:
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.write("Belum cukup data untuk membentuk profil aroma.")
-            
     else:
         st.warning("Database bahan baku kosong atau file CSV belum di-upload ke GitHub.")
 
 # --- TAB 2: AI PERFUMER ASSISTANT ---
 with tab_ai:
     st.header("🤖 Asisten AI Perfumer")
-    st.markdown("Konsultasi formula, cari inspirasi *accord*, analisis IFRA, atau cari bahan pengganti.")
+    st.markdown("Konsultasi formula, cari inspirasi nama, atau dapatkan filosofi parfum Anda.")
     
-    prompt_user = st.text_area("Tanyakan sesuatu ke AI... (Contoh: 'Buatkan saya formula parfum floral musky dengan 5 bahan')")
+    # 1. SIAPKAN KONTEKS FORMULA SAAT INI UNTUK AI
+    formula_context = ""
+    if 'formula' in st.session_state and st.session_state.formula:
+        df_f = pd.DataFrame(st.session_state.formula)
+        df_f = df_f.groupby("Bahan", as_index=False).sum()
+        list_bahan = ", ".join([f"{row['Bahan']} ({row['Input']} parts)" for idx, row in df_f.iterrows()])
+        formula_context = f"\n\n[INFO SISTEM] Formula parfum yang sedang diracik pengguna saat ini: {list_bahan}."
+        
+        st.success("✅ AI terhubung dengan Kalkulator. AI sudah mengenali formula yang sedang Anda racik.")
+        
+        # TOMBOL GENERATE NAMA & FILOSOFI
+        st.markdown("### ✨ Inspirasi Mahakarya")
+        if st.button("✨ Hasilkan Nama & Filosofi Parfum Otomatis"):
+            try:
+                api_key = st.secrets["GEMINI_API_KEY"]
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-pro')
+                with st.spinner("AI sedang merenungkan filosofi wangi racikan Anda..."):
+                    prompt_filosofi = f"Saya baru saja meracik parfum dengan bahan-bahan berikut: {list_bahan}. Tolong buatkan 3 pilihan nama parfum yang sangat elegan, mewah, dan berkelas. Untuk setiap nama, tuliskan satu paragraf filosofi/cerita parfum (storytelling) dengan bahasa Indonesia yang sangat puitis, memikat, profesional, dan terasa ditulis oleh manusia sungguhan (bukan gaya bahasa bot/AI kaku). Fokus pada emosi, suasana, visual, dan karakter wangi yang dihasilkan dari bahan-bahan tersebut. JANGAN menyebutkan angka persentase atau 'parts' di dalam cerita."
+                    response = model.generate_content(prompt_filosofi)
+                    st.markdown("#### Hasil Karya Konseptual Anda:")
+                    st.write(response.text)
+            except KeyError:
+                st.error("⚠️ API Key belum disetel di Secrets.")
+            except Exception as e:
+                st.error(f"Terjadi kesalahan pada AI: {e}")
+    else:
+        st.info("💡 Masukkan bahan di Tab Kalkulator agar AI bisa menganalisis racikan Anda dan membuatkan filosofinya.")
+
+    st.markdown("---")
+    st.markdown("### 💬 Tanya Jawab Interaktif")
+    prompt_user = st.text_area("Tanyakan sesuatu ke AI... (Contoh: 'Bahan apa yang harus saya tambahkan agar racikan ini lebih segar?')")
     
     if st.button("Tanya AI"):
         if not prompt_user:
@@ -200,13 +225,16 @@ with tab_ai:
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-pro')
-                with st.spinner("AI sedang memikirkan racikan terbaik..."):
-                    konteks_system = "Kamu adalah seorang Master Perfumer yang sangat ahli dalam meracik parfum dan hafal standar IFRA Kategori 4. "
-                    response = model.generate_content(konteks_system + prompt_user)
+                with st.spinner("AI sedang memikirkan jawaban..."):
+                    konteks_system = "Kamu adalah seorang Master Perfumer kelas dunia yang sangat ahli, elegan, dan profesional. "
+                    # Gabungkan konteks sistem + info racikan saat ini + pertanyaan pengguna
+                    prompt_lengkap = konteks_system + formula_context + "\n\nPertanyaan pengguna: " + prompt_user
+                    
+                    response = model.generate_content(prompt_lengkap)
                     st.success("Jawaban AI:")
                     st.write(response.text)
             except KeyError:
-                st.error("⚠️ API Key belum disetel! Silakan masukkan GEMINI_API_KEY di menu pengaturan rahasia (Secrets) Streamlit Anda.")
+                st.error("⚠️ API Key belum disetel di menu pengaturan rahasia (Secrets) Streamlit Anda.")
             except Exception as e:
                 st.error(f"Terjadi kesalahan pada AI: {e}.")
 
