@@ -11,6 +11,7 @@ st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="
 @st.cache_data
 def load_database():
     try:
+        # Menggunakan sep=None agar kebal terhadap format TAB maupun KOMA
         df = pd.read_csv("database_ifra_pro.csv", sep=None, engine='python')
         df['Kategori_IFRA_4'] = pd.to_numeric(df['Kategori_IFRA_4'], errors='coerce')
         return df
@@ -117,11 +118,10 @@ with tab_formula:
                 .map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"])
             )
             
-            # --- FITUR BARU: VISUALISASI DIAGRAM AROMA ---
+            # --- FITUR BARU: VISUALISASI DIAGRAM AROMA LINGKARAN ---
             st.markdown("---")
             st.subheader("🕸️ Visualisasi Profil Aroma (Olfactory Accord)")
             
-            # Kamus Pemetaan Kata Kunci Aroma
             kategori_aroma = {
                 "Citrus / Fresh": ["citrus", "lemon", "orange", "bergamot", "lime", "grapefruit", "zesty", "fresh", "segar"],
                 "Floral": ["floral", "rose", "mawar", "jasmine", "melati", "muguet", "tuberose", "ylang", "neroli", "white floral", "orchid"],
@@ -138,7 +138,7 @@ with tab_formula:
             
             skor_aroma = {k: 0.0 for k in kategori_aroma.keys()}
             
-            # Hitung skor berdasarkan deskripsi dan input/persentase formula
+            # Hitung skor
             for idx, row in df_formula.iterrows():
                 deskripsi = str(row["Aroma_Profile"]).lower()
                 bobot = row["% di Bibit"]
@@ -147,18 +147,21 @@ with tab_formula:
                     for word in keywords:
                         if word in deskripsi:
                             skor_aroma[kategori] += bobot
-                            break # Cukup dihitung 1 kali per kategori untuk 1 bahan
+                            break 
                             
-            # Ubah menjadi DataFrame untuk Plotly
             df_radar = pd.DataFrame(list(skor_aroma.items()), columns=['Kategori Aroma', 'Skor Kekuatan'])
-            # Hapus kategori yang skornya 0 agar diagram lebih bersih
             df_radar = df_radar[df_radar['Skor Kekuatan'] > 0]
             
             if not df_radar.empty:
-                df_radar = df_radar.sort_values(by='Skor Kekuatan', ascending=True)
-                fig = px.bar(df_radar, x='Skor Kekuatan', y='Kategori Aroma', orientation='h', 
-                             title="Karakteristik Utama Parfum Anda",
-                             color='Skor Kekuatan', color_continuous_scale='Agsunset')
+                # Menggunakan Diagram Lingkaran (Pie / Donut Chart)
+                fig = px.pie(df_radar, values='Skor Kekuatan', names='Kategori Aroma', 
+                             title="Komposisi Karakter Parfum Anda",
+                             hole=0.4, # Membuatnya menjadi Donut Chart agar elegan
+                             color_discrete_sequence=px.colors.qualitative.Pastel)
+                
+                # Menampilkan label dan persentase di dalam potongan kue
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.write("Belum cukup data untuk membentuk profil aroma.")
