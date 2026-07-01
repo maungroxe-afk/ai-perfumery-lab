@@ -4,6 +4,7 @@ import google.generativeai as genai
 import os
 import plotly.express as px
 import io
+import json
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="wide")
@@ -119,7 +120,7 @@ with tab_formula:
                 .map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"])
             )
             
-            # --- FITUR BARU: DOWNLOAD KE EXCEL ---
+            # --- FITUR DOWNLOAD KE EXCEL ---
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_tampil.to_excel(writer, index=False, sheet_name='Resep Perfume')
@@ -159,7 +160,6 @@ with tab_formula:
             
             col_viz1, col_viz2 = st.columns(2)
             
-            # 1. VISUALISASI PIRAMIDA AROMA
             with col_viz1:
                 top_score = 0.0
                 heart_score = 0.0
@@ -169,7 +169,6 @@ with tab_formula:
                     tipe = str(row["Tipe Note"]).lower()
                     bobot = row["% di Bibit"]
                     
-                    # Logika pembagian piramida
                     if "top" in tipe and "heart" in tipe:
                         top_score += bobot * 0.5
                         heart_score += bobot * 0.5
@@ -188,7 +187,6 @@ with tab_formula:
                     "Persentase": [top_score, heart_score, base_score]
                 })
                 
-                # Membalikkan urutan agar Base ada di bawah seperti piramida asli
                 df_pyramid = df_pyramid.iloc[::-1]
                 
                 if top_score > 0 or heart_score > 0 or base_score > 0:
@@ -199,7 +197,6 @@ with tab_formula:
                 else:
                     st.write("Belum ada data tipe note untuk membuat piramida.")
 
-            # 2. VISUALISASI KARAKTER (DONUT CHART)
             with col_viz2:
                 kategori_aroma = {
                     "Citrus / Fresh": ["citrus", "lemon", "orange", "bergamot", "lime", "grapefruit", "zesty", "fresh", "segar"],
@@ -240,6 +237,41 @@ with tab_formula:
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.write("Belum cukup data untuk membentuk profil aroma.")
+
+        # --- FITUR BARU: SIMPAN & MUAT FORMULA (LOAD/SAVE) ---
+        st.markdown("---")
+        st.subheader("💾 Simpan & Muat Formula (Backup/Restore)")
+        st.write("Gunakan fitur ini untuk menyimpan formula Anda ke perangkat, lalu memuatnya kembali di lain waktu.")
+        
+        col_save1, col_save2 = st.columns(2)
+        
+        with col_save1:
+            st.info("**1. Backup Formula Saat Ini**")
+            if st.session_state.formula:
+                # Mengubah formula menjadi teks JSON
+                formula_json = json.dumps(st.session_state.formula, indent=4)
+                st.download_button(
+                    label="📥 Download Data Formula (.json)",
+                    data=formula_json,
+                    file_name="backup_formula_parfum.json",
+                    mime="application/json",
+                    help="Simpan file ini di HP/Komputer Anda."
+                )
+            else:
+                st.write("⚠️ *Belum ada bahan di formula untuk disimpan.*")
+                
+        with col_save2:
+            st.info("**2. Muat Formula Tersimpan**")
+            uploaded_file = st.file_uploader("Pilih file backup formula (.json)", type=["json"])
+            if uploaded_file is not None:
+                try:
+                    loaded_formula = json.load(uploaded_file)
+                    if st.button("🔄 Pulihkan Formula Ini"):
+                        st.session_state.formula = loaded_formula
+                        st.success("🎉 Formula berhasil dipulihkan! Halaman akan dimuat ulang...")
+                        st.rerun()
+                except Exception as e:
+                    st.error("⚠️ File tidak valid atau format rusak.")
     else:
         st.warning("Database bahan baku kosong atau file CSV belum di-upload ke GitHub.")
 
@@ -248,7 +280,6 @@ with tab_ai:
     st.header("🤖 Asisten AI Perfumer")
     st.markdown("Konsultasi formula, cari inspirasi nama, atau dapatkan filosofi parfum Anda.")
     
-    # 1. SIAPKAN KONTEKS FORMULA SAAT INI UNTUK AI
     formula_context = ""
     if 'formula' in st.session_state and st.session_state.formula:
         df_f = pd.DataFrame(st.session_state.formula)
@@ -258,7 +289,6 @@ with tab_ai:
         
         st.success("✅ AI terhubung dengan Kalkulator. AI sudah mengenali formula yang sedang Anda racik.")
         
-        # TOMBOL GENERATE NAMA & FILOSOFI
         st.markdown("### ✨ Inspirasi Mahakarya")
         if st.button("✨ Hasilkan Nama & Filosofi Parfum Otomatis"):
             try:
