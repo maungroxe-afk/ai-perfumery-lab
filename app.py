@@ -184,7 +184,6 @@ with tab_ai:
     st.header("🤖 Asisten AI Perfumer")
     st.markdown("Konsultasi formula, cari inspirasi nama, atau dapatkan filosofi parfum Anda.")
     
-    # 1. SIAPKAN KONTEKS FORMULA SAAT INI UNTUK AI
     formula_context = ""
     if 'formula' in st.session_state and st.session_state.formula:
         df_f = pd.DataFrame(st.session_state.formula)
@@ -194,13 +193,15 @@ with tab_ai:
         
         st.success("✅ AI terhubung dengan Kalkulator. AI sudah mengenali formula yang sedang Anda racik.")
         
-        # TOMBOL GENERATE NAMA & FILOSOFI
         st.markdown("### ✨ Inspirasi Mahakarya")
         if st.button("✨ Hasilkan Nama & Filosofi Parfum Otomatis"):
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-pro')
+                
+                # UBAH MODEL KE GEMINI-1.5-FLASH
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
                 with st.spinner("AI sedang merenungkan filosofi wangi racikan Anda..."):
                     prompt_filosofi = f"Saya baru saja meracik parfum dengan bahan-bahan berikut: {list_bahan}. Tolong buatkan 3 pilihan nama parfum yang sangat elegan, mewah, dan berkelas. Untuk setiap nama, tuliskan satu paragraf filosofi/cerita parfum (storytelling) dengan bahasa Indonesia yang sangat puitis, memikat, profesional, dan terasa ditulis oleh manusia sungguhan (bukan gaya bahasa bot/AI kaku). Fokus pada emosi, suasana, visual, dan karakter wangi yang dihasilkan dari bahan-bahan tersebut. JANGAN menyebutkan angka persentase atau 'parts' di dalam cerita."
                     response = model.generate_content(prompt_filosofi)
@@ -224,10 +225,12 @@ with tab_ai:
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-pro')
+                
+                # UBAH MODEL KE GEMINI-1.5-FLASH
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
                 with st.spinner("AI sedang memikirkan jawaban..."):
                     konteks_system = "Kamu adalah seorang Master Perfumer kelas dunia yang sangat ahli, elegan, dan profesional. "
-                    # Gabungkan konteks sistem + info racikan saat ini + pertanyaan pengguna
                     prompt_lengkap = konteks_system + formula_context + "\n\nPertanyaan pengguna: " + prompt_user
                     
                     response = model.generate_content(prompt_lengkap)
