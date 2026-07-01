@@ -1,200 +1,31 @@
-Bahan,Kategori_IFRA_4,Aroma_Profile
-Bergamot EO,0.4,Citrus
-Lemon EO,2.0,Citrus
-Grapefruit EO,4.0,Citrus
-Mandarin EO,5.0,Citrus
-Orange Sweet EO,5.0,Citrus
-Lime EO,2.0,Citrus
-Linalool,100.0,Floral
-Lavender EO,100.0,Floral
-Geranium EO,100.0,Floral
-Hedione,100.0,Floral
-Citronellol,1.2,Floral
-Eugenol,0.5,Spicy
-Rose Absolute,0.2,Floral
-Jasmine Sambac Absolute,0.7,Floral
-Ylang Ylang Extra,0.8,Floral
-Neroli EO,1.0,Floral
-Iso E Super,21.4,Woody
-Ambroxan,100.0,Amber
-Vanillin,100.0,Gourmand
-Vanilla Absolute,100.0,Gourmand
-Patchouli EO,100.0,Woody
-Sandalwood EO,100.0,Woody
-Cedarwood Virginian,100.0,Woody
-Oakmoss Absolute,0.1,Earthy
-Coumarin,1.5,Gourmand
-Galaxolide,100.0,Musk
-Ethylene Brassylate,100.0,Musk
-Benzoin Siam,2.0,Resinous
-Labdanum Resinoid,2.0,Amber
-Peru Balsam,0.4,Balsamic
-Helional,1.5,Aquatic
-Florosa,100.0,Floral
-Methyl Ionone Gamma,100.0,Woody
-Vertofix,100.0,Woody
-Cis-3-Hexenol,0.01,Green
-Dihydromyrcenol,100.0,Fresh
-Ethyl Maltol,100.0,Gourmand
-Benzyl Acetate,100.0,Floral
-Phenylethyl Alcohol,100.0,Floral
-Musk Ketone,1.4,Musk
-Isobutyl Quinoline,0.1,Leathery
-Cedryl Acetate,100.0,Woody
-Clary Sage EO,100.0,Herbal
-Black Pepper EO,1.0,Spicy
-Cardamom EO,1.0,Spicy
-Nutmeg EO,0.5,Spicy
-Cinnamon Bark EO,0.05,Spicy
-Clove Bud EO,0.5,Spicy
-Vetiver EO,100.0,Earthy
-Guaiacwood EO,100.0,Woody
-Tonalid,100.0,Musk
-Cyclamen Aldehyde,0.1,Floral
-Lilial,0.05,Floral
-Lyral,0.02,Floral
-Citral,0.6,Citrus
-Geraniol,1.2,Floral
-Farnesol,2.5,Floral
-Alpha-Isomethyl Ionone,2.5,Floral
-Benzyl Benzoate,2.5,Balsamic
-Benzyl Salicylate,2.5,Floral
-Cinnamal,0.05,Spicy
-Isoeugenol,0.02,Spicy
-Anise Alcohol,0.5,Floral
-Hexyl Cinnamal,2.5,Floral
-Hydroxycitronellal,1.0,Floral
-Methyl 2-Octynoate,0.01,Green
-Evernyl,0.1,Earthy
-Cashmeran,0.43,Woody
-Exaltolide,100.0,Musk
-Helvetolide,100.0,Musk
-Muscenone,100.0,Musk
-Velvione,100.0,Musk
-Sandalore,1.5,Woody
-Bacdanol,1.0,Woody
-Javanol,0.5,Woody
-Ebanol,0.5,Woody
-Polysantol,0.5,Woody
-Fixolide,100.0,Musk
-Ambrocenide,0.1,Amber
-Clearwood,100.0,Woody
-Patchouli Heart,100.0,Woody
-Vetiveryl Acetate,100.0,Woody
-Cedramber,100.0,Woody
-Isobutyl Salicylate,0.5,Floral
-Methyl Pamplemousse,1.0,Citrus
-Stemone,0.5,Green
-Galbanum Resinoid,0.2,Green
-Elemi EO,2.0,Resinous
-Frankincense EO,2.0,Resinous
-Myrrh EO,2.0,Resinous
-Opoponax EO,2.0,Resinous
-Styrax EO,1.0,Resinous
-Tolu Balsam,1.0,Balsamic
-Castoreum,0.1,Musk
-Civet Absolute,0.1,Musk
-Costus,0.01,Earthy
-Cumin EO,0.1,Spicy
-Ginger EO,0.5,Spicy
-Juniper Berry EO,1.0,Herbal
-Pine EO,1.0,Woody
-Spearmint EO,1.0,Fresh
-Peppermint EO,1.0,Fresh
-Eucalyptus EO,1.0,Fresh
-Tea Tree EO,1.0,Herbal
-Rosemary EO,1.0,Herbal
-Thyme EO,1.0,Herbal
-Basil EO,1.0,Herbal
-Fennel EO,0.5,Herbal
-Coriander Seed EO,1.0,Spicy
-Lemongrass EO,0.5,Citrus
-Petitgrain EO,1.0,Citrus
-Neroli Bigarade,1.0,Floral
-Jasmine Absolute,0.7,Floral
-Tuberose Absolute,0.1,Floral
-Orange Blossom Abs,0.7,Floral
-Violet Leaf Abs,0.05,Green
-Mimosa Absolute,0.2,Floral
-Narcissus Absolute,0.1,Floral
-Immortelle Abs,0.2,Spicy
-Tobacco Absolute,0.5,Woody
-Hay Absolute,0.5,Earthy
-Beeswax Absolute,1.0,Gourmand
-Tonka Bean Abs,1.5,Gourmand
-Peru Balsam Oil,0.4,Balsamic
-Guaiacwood Oil,100.0,Woody
-Cabreuva Oil,100.0,Woody
-Gurjun Balsam,100.0,Resinous
-Copaiba Balsam,100.0,Resinous
-Birch Tar Oil,0.1,Leathery
-Cade Oil,0.1,Leathery
-Labdanum Abs,2.0,Amber
-Clary Sage Abs,100.0,Herbal
-Evernia Prunastri,0.1,Earthy
-Evernia Furfuracea,0.1,Earthy
-Sandalwood Oil,100.0,Woody
-Amyris Oil,100.0,Woody
-Cedarwood Texas,100.0,Woody
-Cedarwood Atlas,100.0,Woody
-Cypress Oil,1.0,Woody
-Fir Balsam Abs,1.0,Woody
-Pine Needle Oil,1.0,Woody
-Black Spruce Oil,1.0,Woody
-Labdanum EO,2.0,Amber
-Olibanum Oil,2.0,Resinous
-Myrrh Resinoid,2.0,Resinous
-Benzoin Resinoid,2.0,Resinous
-Tolu Balsam Resinoid,1.0,Balsamic
-Styrax Resinoid,1.0,Balsamic
-Peru Balsam Resinoid,0.4,Balsamic
-Vanilla Oleoresin,100.0,Gourmand
-Coffee CO2,0.5,Gourmand
-Cocoa CO2,0.5,Gourmand
-Tonka Bean CO2,1.5,Gourmand
-Black Pepper CO2,1.0,Spicy
-Cardamom CO2,1.0,Spicy
-Nutmeg CO2,0.5,Spicy
-Clove Bud CO2,0.5,Spicy
-Ginger CO2,0.5,Spicy
-Vetiver CO2,100.0,Earthy
-Patchouli CO2,100.0,Woody
-Frankincense CO2,2.0,Resinous
-Myrrh CO2,2.0,Resinous
-Sandalwood CO2,100.0,Woody
-Rose Otto,0.2,Floral
-Rose Absolute,0.2,Floral
-Jasmine Grandiflorum,0.7,Floral
-Tuberose Absolute,0.1,Floral
-Orange Blossom Abs,0.7,Floral
-Neroli Bigarade,1.0,Floral
-Petitgrain Bigarade,1.0,Citrus
-Bergamot Oil FCF,0.4,Citrus
-Lemon Oil,2.0,Citrus
-Mandarin Oil,5.0,Citrus
-Grapefruit Oil,4.0,Citrus
-Lime Oil,2.0,Citrus
-Orange Oil,5.0,Citrus
-Ylang Ylang Oil,0.8,Floral
-Geranium Oil,100.0,Floral
-Lavender Oil,100.0,Floral
-Clary Sage Oil,100.0,Herbal
-Rosemary Oil,1.0,Herbal
-Thyme Oil,1.0,Herbal
-Basil Oil,1.0,Herbal
-Peppermint Oil,1.0,Fresh
-Spearmint Oil,1.0,Fresh
-Eucalyptus Oil,1.0,Fresh
-Tea Tree Oil,1.0,Herbal
-Pine Oil,1.0,Woody
-Cypress Oil,1.0,Woody
-Juniper Berry Oil,1.0,Herbal
-Black Pepper Oil,1.0,Spicy
-Cardamom Oil,1.0,Spicy
-Nutmeg Oil,0.5,Spicy
-Clove Bud Oil,0.5,Spicy
-Cinnamon Bark Oil,0.05,Spicy
-Cinnamon Leaf Oil,0.5,Spicy
-Ginger Oil,0.5,Spicy
-Cherry Accord,100.0,Gourmand
-Benzaldehyde,0.01,Spicy
+Bahan	Kategori_IFRA_4	Aroma_Profile	Tipe_Note
+Ambroxan	100	Ambergris, musky, woody, sweet earthy dengan sentuhan saltiness seperti kulit	Base Note
+Iso E Super	20	Smooth, woody, amber, velvety cedarwood dengan nuansa transparan dan modern	Heart / Base Note
+Hedione	100	Transparent jasmine, airy, fresh, green floral dengan sentuhan citrus yang menyegarkan	Heart Note
+Galaxolide	21.4	Musk yang sangat bersih (clean), manis, powdery, dan sedikit floral	Base Note
+Ethylene Brassylate	100	Musk makrosiklik yang manis, powdery, dengan hint vanilla dan ambrette	Base Note
+Coumarin	1.6	Manis, herbaceous, seperti jerami hangat (warm hay), tonka bean, dan almond	Base Note
+Vanillin	100	Sangat manis, creamy, vanilla klasik, memberikan efek gourmand yang kuat (tidak dibatasi IFRA namun bisa mengubah warna cairan)	Base Note
+Ethyl Maltol	100	Aroma manis permen kapas (cotton candy), gula gosong, karamel, dan selai stroberi	Base Note
+Cashmeran	3.8	Musk yang kompleks, diffusive, spicy, sedikit fruity, balsamic, dan floral	Base Note
+Oakmoss Absolute (IFRA Compliant)	0.1	Sangat earthy, mossy, dalam, woody, dan sedikit leathery (batas sangat ketat karena alergen)	Base Note
+Bergamot Oil (Cold Pressed)	0.4	Fresh, zesty, citrus, sedikit floral dan pahit (Batas sangat ketat 0.4% karena fototoksik)	Top Note
+Bergamot Oil (FCF / Bergapten Free)	100	Fresh, zesty, citrus, manis, memberikan nuansa teh Earl Grey (Tidak dibatasi karena bebas fototoksik)	Top Note
+Lemon Oil (Cold Pressed)	2	Citrus, bright, fresh, zesty, sedikit rind-like (Batas 2% karena fototoksik)	Top Note
+Sweet Orange Oil	100	Citrus, manis, juicy, fruity, menyegarkan	Top Note
+Linalool	4.3	Floral yang segar, woody, bernuansa lavender, dengan sentuhan citrus yang ringan	Top Note / Heart Note
+Geraniol	4.7	Manis, floral, mawar (rose), sedikit fruity, dengan nuansa citrus dan hijau (green)	Heart Note
+Citronellol	13.3	Floral, mawar segar, green, sedikit citrus, lebih ringan dari geraniol	Heart Note
+Benzyl Salicylate	8	Floral yang sangat lembut, balsamic, sweet, sedikit metallic, sering dipakai sebagai blender	Heart / Base Note
+Eugenol	0.5	Spicy yang tajam, cengkeh (clove), hangat, woody (Batas IFRA sangat ketat)	Heart Note
+Cinnamaldehyde	0.014	Spicy, kayu manis (cinnamon) yang kuat, hangat, manis (Sangat dibatasi karena iritasi kulit)	Heart Note
+Hydroxycitronellal	1	Floral, manis, segar, sangat khas bunga Lily of the Valley (Muguet)	Heart Note
+Patchouli Oil	100	Sangat woody, earthy, balsamic, sedikit camphoraceous, memberikan kedalaman luar biasa	Base Note
+Vetiver Oil	100	Woody, earthy, aroma akar (rooty), smoky, dan sedikit kacang (nutty)	Base Note
+Sandalwood Oil (Album)	100	Woody yang sangat halus, creamy, smooth, milky, dan kaya	Base Note
+Calone 1951	100	Marine, sea breeze, ozone, watery, dengan nuansa buah melon	Top / Heart Note
+Rose Absolute	2.5	Floral mawar yang sangat kaya, dalam, manis, madu, dan sedikit spicy	Heart Note
+Jasmine Grandiflorum Absolute	0.6	Floral putih yang intens, manis, fruity, dengan nuansa indolic (animalic) yang seksi	Heart Note
+Indole	100	Sangat animalic, fecal pada konsentrasi tinggi, namun memberikan efek floral melati yang magis jika diencerkan	Base Note
+Damascone Alpha	0.02	Sangat fruity, floral mawar, apel, plum, woody (Batas sangat ketat karena sensitasi)	Heart Note
+Heliotropin	5.3	Manis, floral, vanilla, almond, cherry pie, powdery	Heart / Base Note
