@@ -272,8 +272,8 @@ with tab_ai:
     
     # FUNGSI UNTUK MEMANGGIL GEMINI API SECARA LANGSUNG MENGGUNAKAN REQUESTS
     def panggil_gemini_api_langsung(prompt, api_key):
-        # Menggunakan model gemini-1.5-pro secara langsung lewat URL REST API
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
+        # MENGGUNAKAN NAMA MODEL RESMI GEMINI-1.5-FLASH
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         headers = {'Content-Type': 'application/json'}
         data = {
             "contents": [{"parts": [{"text": prompt}]}]
@@ -284,7 +284,6 @@ with tab_ai:
         if response.status_code == 200:
             hasil = response.json()
             try:
-                # Mengambil teks jawaban dari format JSON balasan Google
                 teks_jawaban = hasil['candidates'][0]['content']['parts'][0]['text']
                 return teks_jawaban
             except (KeyError, IndexError):
@@ -305,7 +304,7 @@ with tab_ai:
         if st.button("✨ Hasilkan Nama & Filosofi Parfum Otomatis"):
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
-                with st.spinner("AI (Gemini 1.5 Pro) sedang merenungkan filosofi wangi racikan Anda..."):
+                with st.spinner("AI sedang merenungkan filosofi wangi racikan Anda..."):
                     prompt_filosofi = f"Saya baru saja meracik parfum dengan bahan-bahan berikut: {list_bahan}. Tolong buatkan 3 pilihan nama parfum yang sangat elegan, mewah, dan berkelas. Untuk setiap nama, tuliskan satu paragraf filosofi/cerita parfum (storytelling) dengan bahasa Indonesia yang sangat puitis, memikat, profesional, dan terasa ditulis oleh manusia sungguhan. Fokus pada emosi, suasana, visual, dan karakter wangi yang dihasilkan dari bahan-bahan tersebut. JANGAN menyebutkan angka persentase."
                     
                     # Memanggil fungsi API REST langsung
@@ -330,7 +329,7 @@ with tab_ai:
         else:
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
-                with st.spinner("AI (Gemini 1.5 Pro) sedang memikirkan jawaban..."):
+                with st.spinner("AI sedang memikirkan jawaban..."):
                     konteks_system = "Kamu adalah seorang Master Perfumer kelas dunia yang sangat ahli, elegan, dan profesional. "
                     prompt_lengkap = konteks_system + formula_context + "\n\nPertanyaan pengguna: " + prompt_user
                     
