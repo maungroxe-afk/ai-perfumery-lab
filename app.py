@@ -285,8 +285,8 @@ with tab_ai:
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
                 
-                # MENGGUNAKAN MODEL KELAS ATAS UNTUK API BERBAYAR
-                model = genai.GenerativeModel('gemini-1.5-pro')
+                # MENGGUNAKAN MODEL GEMINI-1.5-FLASH YANG 100% KOMPATIBEL
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 with st.spinner("AI sedang merenungkan filosofi wangi racikan Anda..."):
                     prompt_filosofi = f"Saya baru saja meracik parfum dengan bahan-bahan berikut: {list_bahan}. Tolong buatkan 3 pilihan nama parfum yang sangat elegan, mewah, dan berkelas. Untuk setiap nama, tuliskan satu paragraf filosofi/cerita parfum (storytelling) dengan bahasa Indonesia yang sangat puitis, memikat, profesional, dan terasa ditulis oleh manusia sungguhan. Fokus pada emosi, suasana, visual, dan karakter wangi yang dihasilkan dari bahan-bahan tersebut. JANGAN menyebutkan angka persentase."
@@ -312,8 +312,8 @@ with tab_ai:
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
                 
-                # MENGGUNAKAN MODEL KELAS ATAS UNTUK API BERBAYAR
-                model = genai.GenerativeModel('gemini-1.5-pro')
+                # MENGGUNAKAN MODEL GEMINI-1.5-FLASH YANG 100% KOMPATIBEL
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 with st.spinner("AI sedang memikirkan jawaban..."):
                     konteks_system = "Kamu adalah seorang Master Perfumer kelas dunia yang sangat ahli, elegan, dan profesional. "
