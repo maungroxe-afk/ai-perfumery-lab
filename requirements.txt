@@ -1,5 +1,3 @@
-streamlit
-pandas
-supabase
-google-genai
-plotly
+streamlit==1.32.0
+pandas==2.2.1
+google-generativeai==0.4.1
