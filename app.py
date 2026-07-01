@@ -10,9 +10,9 @@ st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="
 @st.cache_data
 def load_database():
     try:
-        # Membaca dari file CSV. sep=None dan engine='python' agar bisa otomatis 
-        # membaca file yang dipisahkan oleh Koma (,) maupun Tab (jarak spasi panjang).
         df = pd.read_csv("database_ifra_pro.csv", sep=None, engine='python')
+        # Pastikan Kategori IFRA berupa angka numerik
+        df['Kategori_IFRA_4'] = pd.to_numeric(df['Kategori_IFRA_4'], errors='coerce')
         return df
     except FileNotFoundError:
         st.error("File database_ifra_pro.csv tidak ditemukan di repository!")
@@ -21,7 +21,7 @@ def load_database():
 df_ifra = load_database()
 
 st.title("🧪 AI Perfumery Lab Pro & IFRA Analyzer")
-st.markdown("Aplikasi peracikan parfum cerdas dengan database profesional dan Asisten AI.")
+st.markdown("Aplikasi peracikan parfum cerdas dengan kalkulasi Produk Akhir (EDT/EDP/Extrait).")
 
 # --- TABS ---
 tab_formula, tab_ai, tab_db = st.tabs(["⚖️ Kalkulator Formulasi", "🤖 AI Perfumer Assistant", "📚 Database IFRA Pro"])
@@ -30,19 +30,40 @@ tab_formula, tab_ai, tab_db = st.tabs(["⚖️ Kalkulator Formulasi", "🤖 AI P
 with tab_formula:
     st.header("Kalkulator Formulasi Parfum")
     
+    # Pengaturan Target Parfum
+    st.subheader("Pengaturan Target Produk Akhir")
+    col_target1, col_target2 = st.columns(2)
+    with col_target1:
+        dict_konsentrasi = {
+            "Eau de Cologne (EDC) - 5%": 5.0,
+            "Eau de Toilette (EDT) - 10%": 10.0,
+            "Eau de Parfum (EDP) - 20%": 20.0,
+            "Extrait de Parfum - 30%": 30.0
+        }
+        pilihan_konsentrasi = st.selectbox("Konsentrasi Parfum", list(dict_konsentrasi.keys()))
+        val_konsentrasi = dict_konsentrasi[pilihan_konsentrasi]
+        
+    with col_target2:
+        dict_volume = {"10 ml": 10.0, "30 ml": 30.0, "50 ml": 50.0, "100 ml": 100.0}
+        pilihan_volume = st.selectbox("Target Volume Botol", list(dict_volume.keys()))
+        val_volume = dict_volume[pilihan_volume]
+
+    st.markdown("---")
+    st.subheader("Input Bahan Konsentrat (Bibit)")
+    
     if not df_ifra.empty:
         if 'formula' not in st.session_state:
             st.session_state.formula = []
 
         col1, col2 = st.columns([2, 1])
         with col1:
-            daftar_bahan = df_ifra["Bahan"].tolist()
+            daftar_bahan = df_ifra["Bahan"].dropna().tolist()
             bahan_pilihan = st.selectbox("Pilih Bahan Baku", daftar_bahan)
         with col2:
-            jumlah_bahan = st.number_input("Jumlah (Gram / Tetes)", min_value=0.01, value=1.0, step=0.1)
+            jumlah_bahan = st.number_input("Rasio / Jumlah Bibit", min_value=0.01, value=1.0, step=0.1)
 
         if st.button("➕ Tambah ke Formula"):
-            st.session_state.formula.append({"Bahan": bahan_pilihan, "Jumlah (g)": jumlah_bahan})
+            st.session_state.formula.append({"Bahan": bahan_pilihan, "Input (Rasio)": jumlah_bahan})
             st.success(f"{bahan_pilihan} ditambahkan!")
 
         # Tampilkan Formula dan Analisis
@@ -50,27 +71,40 @@ with tab_formula:
             df_formula = pd.DataFrame(st.session_state.formula)
             df_formula = df_formula.groupby("Bahan", as_index=False).sum()
             
-            total_jumlah = df_formula["Jumlah (g)"].sum()
-            df_formula["Persentase (%)"] = (df_formula["Jumlah (g)"] / total_jumlah) * 100
+            # Perhitungan dalam BIBIT MURNI (Konsentrat)
+            total_input = df_formula["Input (Rasio)"].sum()
+            df_formula["% di Bibit"] = (df_formula["Input (Rasio)"] / total_input) * 100
             
-            # Gabungkan dengan limit IFRA dan detail lain dari database CSV
-            df_formula = pd.merge(df_formula, df_ifra[["Bahan", "Kategori_IFRA_4", "Tipe_Note"]], on="Bahan", how="left")
+            # Perhitungan dalam PRODUK AKHIR (Setelah dicampur pelarut/alkohol)
+            # % di Produk Akhir = % di Bibit * (Konsentrasi / 100)
+            df_formula["% di Produk Akhir"] = df_formula["% di Bibit"] * (val_konsentrasi / 100.0)
+            
+            # Perhitungan Gram yang harus ditimbang untuk mencapai Target Volume
+            # (Asumsi 1 ml = 1 gram untuk memudahkan skala lab)
+            kebutuhan_bibit_total = val_volume * (val_konsentrasi / 100.0)
+            pelarut_total = val_volume - kebutuhan_bibit_total
+            
+            df_formula["Target Timbangan (g)"] = (df_formula["% di Bibit"] / 100.0) * kebutuhan_bibit_total
+            
+            # Gabungkan dengan limit IFRA
+            df_formula = pd.merge(df_formula, df_ifra[["Bahan", "Kategori_IFRA_4"]], on="Bahan", how="left")
             
             def cek_ifra(row):
-                persen = row["Persentase (%)"]
+                persen_akhir = row["% di Produk Akhir"]
                 limit = row["Kategori_IFRA_4"]
-                return "✅ Aman" if persen <= limit else "❌ Melebihi Batas!"
+                return "✅ Aman" if persen_akhir <= limit else "❌ Melebihi Batas!"
 
             df_formula["Status IFRA"] = df_formula.apply(cek_ifra, axis=1)
             
-            # Merapikan tampilan tabel
-            df_formula.rename(columns={"Kategori_IFRA_4": "Batas IFRA (%)", "Tipe_Note": "Tipe Note"}, inplace=True)
+            df_formula.rename(columns={"Kategori_IFRA_4": "Batas IFRA (%)"}, inplace=True)
             
-            # Menyusun urutan kolom agar lebih enak dibaca
-            df_tampil = df_formula[["Bahan", "Tipe Note", "Jumlah (g)", "Persentase (%)", "Batas IFRA (%)", "Status IFRA"]]
+            # Tampilan Tabel
+            df_tampil = df_formula[["Bahan", "Target Timbangan (g)", "% di Produk Akhir", "Batas IFRA (%)", "Status IFRA"]]
             
-            st.subheader("Detail Formulasi Anda")
-            st.write(f"**Total Berat Formula:** {total_jumlah:.2f} Gram")
+            st.markdown("---")
+            st.subheader(f"📊 Resep Final: {pilihan_volume} {pilihan_konsentrasi.split('-')[0].strip()}")
+            st.info(f"💡 **Instruksi Timbangan:** Timbang total **{kebutuhan_bibit_total:.2f} gram Bibit** sesuai tabel di bawah, lalu tambahkan **{pelarut_total:.2f} gram Alkohol/Pelarut**.")
+            
             st.dataframe(df_tampil.style.map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"]))
             
             if st.button("🗑️ Hapus Semua Formula"):
@@ -82,7 +116,6 @@ with tab_formula:
 # --- TAB 2: AI PERFUMER ASSISTANT ---
 with tab_ai:
     st.header("🤖 Asisten AI Perfumer")
-    st.markdown("Konsultasi formula, cari inspirasi *accord*, analisis IFRA, atau cari bahan pengganti.")
     
     api_key = st.text_input("Masukkan Google Gemini API Key Anda", type="password")
     prompt_user = st.text_area("Tanyakan sesuatu ke AI... (Contoh: 'Buatkan saya formula parfum floral musky dengan 5 bahan')")
@@ -95,10 +128,8 @@ with tab_ai:
         else:
             try:
                 genai.configure(api_key=api_key)
-                # Menggunakan model Gemini Pro
                 model = genai.GenerativeModel('gemini-pro')
                 with st.spinner("AI sedang memikirkan racikan terbaik..."):
-                    # Menambahkan konteks agar AI menjawab layaknya ahli parfum
                     konteks_system = "Kamu adalah seorang Master Perfumer yang sangat ahli dalam meracik parfum dan hafal standar IFRA Kategori 4. "
                     response = model.generate_content(konteks_system + prompt_user)
                     st.success("Jawaban AI:")
@@ -109,7 +140,5 @@ with tab_ai:
 # --- TAB 3: DATABASE IFRA ---
 with tab_db:
     st.header("📚 Database Bahan Baku Profesional")
-    st.write("Diambil otomatis dari file `database_ifra_pro.csv`. Anda bisa memperbarui file ini kapan saja di GitHub tanpa mengubah kode aplikasi.")
     if not df_ifra.empty:
-        # Menampilkan seluruh database
         st.dataframe(df_ifra)
