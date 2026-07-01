@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
-import google.generativeai as genai
 import os
 import plotly.express as px
 import io
 import json
+import requests
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="wide")
@@ -270,6 +270,28 @@ with tab_ai:
     st.header("🤖 Asisten AI Perfumer")
     st.markdown("Konsultasi formula, cari inspirasi nama, atau dapatkan filosofi parfum Anda.")
     
+    # FUNGSI UNTUK MEMANGGIL GEMINI API SECARA LANGSUNG MENGGUNAKAN REQUESTS
+    def panggil_gemini_api_langsung(prompt, api_key):
+        # Menggunakan model gemini-1.5-pro secara langsung lewat URL REST API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
+        headers = {'Content-Type': 'application/json'}
+        data = {
+            "contents": [{"parts": [{"text": prompt}]}]
+        }
+        
+        response = requests.post(url, headers=headers, json=data)
+        
+        if response.status_code == 200:
+            hasil = response.json()
+            try:
+                # Mengambil teks jawaban dari format JSON balasan Google
+                teks_jawaban = hasil['candidates'][0]['content']['parts'][0]['text']
+                return teks_jawaban
+            except (KeyError, IndexError):
+                return "Maaf, AI memberikan format jawaban yang tidak dapat dibaca."
+        else:
+            return f"Error API ({response.status_code}): {response.text}"
+
     formula_context = ""
     if 'formula' in st.session_state and st.session_state.formula:
         df_f = pd.DataFrame(st.session_state.formula)
@@ -283,16 +305,14 @@ with tab_ai:
         if st.button("✨ Hasilkan Nama & Filosofi Parfum Otomatis"):
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
-                genai.configure(api_key=api_key)
-                
-                # MENGGUNAKAN MODEL GEMINI-1.5-FLASH YANG 100% KOMPATIBEL
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                
-                with st.spinner("AI sedang merenungkan filosofi wangi racikan Anda..."):
+                with st.spinner("AI (Gemini 1.5 Pro) sedang merenungkan filosofi wangi racikan Anda..."):
                     prompt_filosofi = f"Saya baru saja meracik parfum dengan bahan-bahan berikut: {list_bahan}. Tolong buatkan 3 pilihan nama parfum yang sangat elegan, mewah, dan berkelas. Untuk setiap nama, tuliskan satu paragraf filosofi/cerita parfum (storytelling) dengan bahasa Indonesia yang sangat puitis, memikat, profesional, dan terasa ditulis oleh manusia sungguhan. Fokus pada emosi, suasana, visual, dan karakter wangi yang dihasilkan dari bahan-bahan tersebut. JANGAN menyebutkan angka persentase."
-                    response = model.generate_content(prompt_filosofi)
+                    
+                    # Memanggil fungsi API REST langsung
+                    jawaban_ai = panggil_gemini_api_langsung(prompt_filosofi, api_key)
+                    
                     st.markdown("#### Hasil Karya Konseptual Anda:")
-                    st.write(response.text)
+                    st.write(jawaban_ai)
             except KeyError:
                 st.error("⚠️ API Key belum disetel di Secrets.")
             except Exception as e:
@@ -310,17 +330,15 @@ with tab_ai:
         else:
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
-                genai.configure(api_key=api_key)
-                
-                # MENGGUNAKAN MODEL GEMINI-1.5-FLASH YANG 100% KOMPATIBEL
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                
-                with st.spinner("AI sedang memikirkan jawaban..."):
+                with st.spinner("AI (Gemini 1.5 Pro) sedang memikirkan jawaban..."):
                     konteks_system = "Kamu adalah seorang Master Perfumer kelas dunia yang sangat ahli, elegan, dan profesional. "
                     prompt_lengkap = konteks_system + formula_context + "\n\nPertanyaan pengguna: " + prompt_user
-                    response = model.generate_content(prompt_lengkap)
+                    
+                    # Memanggil fungsi API REST langsung
+                    jawaban_ai = panggil_gemini_api_langsung(prompt_lengkap, api_key)
+                    
                     st.success("Jawaban AI:")
-                    st.write(response.text)
+                    st.write(jawaban_ai)
             except KeyError:
                 st.error("⚠️ API Key belum disetel di menu pengaturan rahasia (Secrets) Streamlit Anda.")
             except Exception as e:
