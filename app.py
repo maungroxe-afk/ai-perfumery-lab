@@ -272,8 +272,8 @@ with tab_ai:
     
     # FUNGSI UNTUK MEMANGGIL GEMINI API SECARA LANGSUNG MENGGUNAKAN REQUESTS
     def panggil_gemini_api_langsung(prompt, api_key):
-        # MENGGUNAKAN NAMA MODEL RESMI GEMINI-1.5-FLASH
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        # MENGGUNAKAN NAMA MODEL LAMA YANG PALING AMAN DAN PASTI DIDUKUNG
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
         headers = {'Content-Type': 'application/json'}
         data = {
             "contents": [{"parts": [{"text": prompt}]}]
