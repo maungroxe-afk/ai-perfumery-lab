@@ -66,7 +66,7 @@ with tab_formula:
         
         st.subheader("Detail Formulasi Anda")
         st.write(f"**Total Berat Formula:** {total_jumlah:.2f} Gram")
-        st.dataframe(df_formula.style.applymap(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"]))
+        st.dataframe(df_formula.style.map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"]))
         
         if st.button("🗑️ Hapus Semua Formula"):
             st.session_state.formula = []
