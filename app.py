@@ -3,6 +3,7 @@ import pandas as pd
 import google.generativeai as genai
 import os
 import plotly.express as px
+import io
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="wide")
@@ -11,6 +12,7 @@ st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="
 @st.cache_data
 def load_database():
     try:
+        # Menggunakan sep=None agar kebal terhadap format TAB maupun KOMA
         df = pd.read_csv("database_ifra_pro.csv", sep=None, engine='python')
         df['Kategori_IFRA_4'] = pd.to_numeric(df['Kategori_IFRA_4'], errors='coerce')
         return df
@@ -30,6 +32,7 @@ tab_formula, tab_ai, tab_db = st.tabs(["⚖️ Kalkulator Formulasi", "🤖 AI P
 with tab_formula:
     st.header("Kalkulator Formulasi Parfum")
     
+    # Pengaturan Target Parfum
     st.subheader("1. Pengaturan Target Produk Akhir")
     col_target1, col_target2 = st.columns(2)
     with col_target1:
@@ -66,12 +69,14 @@ with tab_formula:
             st.session_state.formula.append({"Bahan": bahan_pilihan, "Input": jumlah_bahan})
             st.success(f"{bahan_pilihan} ditambahkan!")
 
+        # Tampilkan Formula dan Analisis
         if st.session_state.formula:
             df_formula = pd.DataFrame(st.session_state.formula)
             df_formula = df_formula.groupby("Bahan", as_index=False).sum()
             
             total_input = df_formula["Input"].sum()
             
+            # Progress Bar Formula
             st.metric(label="Total Input Formula Saat Ini", value=f"{total_input:.2f}")
             if total_input < 100:
                 st.info(f"💡 Masih kurang {100 - total_input:.2f} lagi untuk mencapai formula 100%.")
@@ -87,7 +92,8 @@ with tab_formula:
             pelarut_total = val_volume - kebutuhan_bibit_total
             df_formula["Target Timbangan (g)"] = (df_formula["% di Bibit"] / 100.0) * kebutuhan_bibit_total
             
-            df_formula = pd.merge(df_formula, df_ifra[["Bahan", "Kategori_IFRA_4", "Aroma_Profile"]], on="Bahan", how="left")
+            # Gabungkan dengan database
+            df_formula = pd.merge(df_formula, df_ifra[["Bahan", "Kategori_IFRA_4", "Aroma_Profile", "Tipe_Note"]], on="Bahan", how="left")
             
             def cek_ifra(row):
                 persen_akhir = row["% di Produk Akhir"]
@@ -95,13 +101,13 @@ with tab_formula:
                 return "✅ Aman" if persen_akhir <= limit else "❌ Melebihi Batas!"
 
             df_formula["Status IFRA"] = df_formula.apply(cek_ifra, axis=1)
-            df_formula.rename(columns={"Kategori_IFRA_4": "Batas IFRA (%)"}, inplace=True)
+            df_formula.rename(columns={"Kategori_IFRA_4": "Batas IFRA (%)", "Tipe_Note": "Tipe Note"}, inplace=True)
             
             kolom_numerik = ["Input", "% di Bibit", "Target Timbangan (g)", "% di Produk Akhir", "Batas IFRA (%)"]
             for col in kolom_numerik:
                 df_formula[col] = df_formula[col].round(2)
             
-            df_tampil = df_formula[["Bahan", "Input", "% di Bibit", "Target Timbangan (g)", "% di Produk Akhir", "Batas IFRA (%)", "Status IFRA"]]
+            df_tampil = df_formula[["Bahan", "Tipe Note", "Input", "% di Bibit", "Target Timbangan (g)", "% di Produk Akhir", "Batas IFRA (%)", "Status IFRA"]]
             
             st.markdown("---")
             st.subheader(f"📊 Resep Final: {pilihan_volume} {pilihan_konsentrasi.split('-')[0].strip()}")
@@ -113,6 +119,19 @@ with tab_formula:
                 .map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"])
             )
             
+            # --- FITUR BARU: DOWNLOAD KE EXCEL ---
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_tampil.to_excel(writer, index=False, sheet_name='Resep Perfume')
+            
+            st.download_button(
+                label="📥 Download Resep (Excel / .xlsx)",
+                data=buffer.getvalue(),
+                file_name="resep_parfum_ai_lab.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            
+            # --- KELOLA & HAPUS BAHAN ---
             st.markdown("---")
             st.subheader("🛠️ Kelola Formula")
             
@@ -134,48 +153,93 @@ with tab_formula:
                     st.session_state.formula = []
                     st.rerun()
 
+            # --- VISUALISASI DIAGRAM AROMA LINGKARAN & PIRAMIDA ---
             st.markdown("---")
-            st.subheader("🕸️ Visualisasi Profil Aroma (Olfactory Accord)")
+            st.subheader("🕸️ Visualisasi Karakter & Piramida Aroma")
             
-            kategori_aroma = {
-                "Citrus / Fresh": ["citrus", "lemon", "orange", "bergamot", "lime", "grapefruit", "zesty", "fresh", "segar"],
-                "Floral": ["floral", "rose", "mawar", "jasmine", "melati", "muguet", "tuberose", "ylang", "neroli", "white floral", "orchid"],
-                "Woody": ["woody", "kayu", "cedar", "sandalwood", "patchouli", "vetiver", "earthy", "mossy", "pine"],
-                "Spicy": ["spicy", "cinnamon", "clove", "pepper", "cardamom", "rempah", "pedas", "hangat"],
-                "Fruity": ["fruity", "apple", "peach", "pear", "berry", "pisang", "nanas", "apel", "plum", "buah"],
-                "Sweet / Gourmand": ["sweet", "manis", "vanilla", "gourmand", "caramel", "cokelat", "madu", "tonka", "almond", "creamy"],
-                "Musk": ["musk", "musky", "powdery", "clean", "bersih"],
-                "Amber / Balsamic": ["amber", "ambergris", "balsamic", "resin", "warm", "incense", "dupa", "mur"],
-                "Green / Herbal": ["green", "hijau", "leaf", "grass", "rumput", "herbal", "lavender", "mint", "camphor", "tea"],
-                "Animalic / Leather": ["animalic", "leathery", "leather", "kulit", "civet", "castoreum", "smoky", "fecal"],
-                "Marine / Aquatic": ["marine", "watery", "ozone", "sea", "aquatic", "melon"]
-            }
+            col_viz1, col_viz2 = st.columns(2)
             
-            skor_aroma = {k: 0.0 for k in kategori_aroma.keys()}
-            
-            for idx, row in df_formula.iterrows():
-                deskripsi = str(row["Aroma_Profile"]).lower()
-                bobot = row["% di Bibit"]
+            # 1. VISUALISASI PIRAMIDA AROMA
+            with col_viz1:
+                top_score = 0.0
+                heart_score = 0.0
+                base_score = 0.0
                 
-                for kategori, keywords in kategori_aroma.items():
-                    for word in keywords:
-                        if word in deskripsi:
-                            skor_aroma[kategori] += bobot
-                            break 
-                            
-            df_radar = pd.DataFrame(list(skor_aroma.items()), columns=['Kategori Aroma', 'Skor Kekuatan'])
-            df_radar = df_radar[df_radar['Skor Kekuatan'] > 0]
-            
-            if not df_radar.empty:
-                fig = px.pie(df_radar, values='Skor Kekuatan', names='Kategori Aroma', 
-                             title="Komposisi Karakter Parfum Anda",
-                             hole=0.4,
-                             color_discrete_sequence=px.colors.qualitative.Pastel)
+                for idx, row in df_formula.iterrows():
+                    tipe = str(row["Tipe Note"]).lower()
+                    bobot = row["% di Bibit"]
+                    
+                    # Logika pembagian piramida
+                    if "top" in tipe and "heart" in tipe:
+                        top_score += bobot * 0.5
+                        heart_score += bobot * 0.5
+                    elif "heart" in tipe and "base" in tipe:
+                        heart_score += bobot * 0.5
+                        base_score += bobot * 0.5
+                    elif "top" in tipe:
+                        top_score += bobot
+                    elif "heart" in tipe:
+                        heart_score += bobot
+                    elif "base" in tipe:
+                        base_score += bobot
                 
-                fig.update_traces(textposition='inside', textinfo='percent+label')
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.write("Belum cukup data untuk membentuk profil aroma.")
+                df_pyramid = pd.DataFrame({
+                    "Tahapan": ["Top Notes (Awal)", "Heart Notes (Tengah)", "Base Notes (Akhir)"],
+                    "Persentase": [top_score, heart_score, base_score]
+                })
+                
+                # Membalikkan urutan agar Base ada di bawah seperti piramida asli
+                df_pyramid = df_pyramid.iloc[::-1]
+                
+                if top_score > 0 or heart_score > 0 or base_score > 0:
+                    fig_pyr = px.funnel(df_pyramid, x='Persentase', y='Tahapan', 
+                                        title="Piramida Aroma Parfum",
+                                        color_discrete_sequence=['#b596d6'])
+                    st.plotly_chart(fig_pyr, use_container_width=True)
+                else:
+                    st.write("Belum ada data tipe note untuk membuat piramida.")
+
+            # 2. VISUALISASI KARAKTER (DONUT CHART)
+            with col_viz2:
+                kategori_aroma = {
+                    "Citrus / Fresh": ["citrus", "lemon", "orange", "bergamot", "lime", "grapefruit", "zesty", "fresh", "segar"],
+                    "Floral": ["floral", "rose", "mawar", "jasmine", "melati", "muguet", "tuberose", "ylang", "neroli", "white floral", "orchid"],
+                    "Woody": ["woody", "kayu", "cedar", "sandalwood", "patchouli", "vetiver", "earthy", "mossy", "pine"],
+                    "Spicy": ["spicy", "cinnamon", "clove", "pepper", "cardamom", "rempah", "pedas", "hangat"],
+                    "Fruity": ["fruity", "apple", "peach", "pear", "berry", "pisang", "nanas", "apel", "plum", "buah"],
+                    "Sweet / Gourmand": ["sweet", "manis", "vanilla", "gourmand", "caramel", "cokelat", "madu", "tonka", "almond", "creamy"],
+                    "Musk": ["musk", "musky", "powdery", "clean", "bersih"],
+                    "Amber / Balsamic": ["amber", "ambergris", "balsamic", "resin", "warm", "incense", "dupa", "mur"],
+                    "Green / Herbal": ["green", "hijau", "leaf", "grass", "rumput", "herbal", "lavender", "mint", "camphor", "tea"],
+                    "Animalic / Leather": ["animalic", "leathery", "leather", "kulit", "civet", "castoreum", "smoky", "fecal"],
+                    "Marine / Aquatic": ["marine", "watery", "ozone", "sea", "aquatic", "melon"]
+                }
+                
+                skor_aroma = {k: 0.0 for k in kategori_aroma.keys()}
+                
+                for idx, row in df_formula.iterrows():
+                    deskripsi = str(row["Aroma_Profile"]).lower()
+                    bobot = row["% di Bibit"]
+                    
+                    for kategori, keywords in kategori_aroma.items():
+                        for word in keywords:
+                            if word in deskripsi:
+                                skor_aroma[kategori] += bobot
+                                break 
+                                
+                df_radar = pd.DataFrame(list(skor_aroma.items()), columns=['Kategori Aroma', 'Skor Kekuatan'])
+                df_radar = df_radar[df_radar['Skor Kekuatan'] > 0]
+                
+                if not df_radar.empty:
+                    fig = px.pie(df_radar, values='Skor Kekuatan', names='Kategori Aroma', 
+                                 title="Komposisi Karakter (Accord)",
+                                 hole=0.4,
+                                 color_discrete_sequence=px.colors.qualitative.Pastel)
+                    
+                    fig.update_traces(textposition='inside', textinfo='percent+label')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.write("Belum cukup data untuk membentuk profil aroma.")
     else:
         st.warning("Database bahan baku kosong atau file CSV belum di-upload ke GitHub.")
 
@@ -184,6 +248,7 @@ with tab_ai:
     st.header("🤖 Asisten AI Perfumer")
     st.markdown("Konsultasi formula, cari inspirasi nama, atau dapatkan filosofi parfum Anda.")
     
+    # 1. SIAPKAN KONTEKS FORMULA SAAT INI UNTUK AI
     formula_context = ""
     if 'formula' in st.session_state and st.session_state.formula:
         df_f = pd.DataFrame(st.session_state.formula)
@@ -193,17 +258,15 @@ with tab_ai:
         
         st.success("✅ AI terhubung dengan Kalkulator. AI sudah mengenali formula yang sedang Anda racik.")
         
+        # TOMBOL GENERATE NAMA & FILOSOFI
         st.markdown("### ✨ Inspirasi Mahakarya")
         if st.button("✨ Hasilkan Nama & Filosofi Parfum Otomatis"):
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
-                
-                # UBAH MODEL KE GEMINI-1.5-FLASH
                 model = genai.GenerativeModel('gemini-1.5-flash')
-                
                 with st.spinner("AI sedang merenungkan filosofi wangi racikan Anda..."):
-                    prompt_filosofi = f"Saya baru saja meracik parfum dengan bahan-bahan berikut: {list_bahan}. Tolong buatkan 3 pilihan nama parfum yang sangat elegan, mewah, dan berkelas. Untuk setiap nama, tuliskan satu paragraf filosofi/cerita parfum (storytelling) dengan bahasa Indonesia yang sangat puitis, memikat, profesional, dan terasa ditulis oleh manusia sungguhan (bukan gaya bahasa bot/AI kaku). Fokus pada emosi, suasana, visual, dan karakter wangi yang dihasilkan dari bahan-bahan tersebut. JANGAN menyebutkan angka persentase atau 'parts' di dalam cerita."
+                    prompt_filosofi = f"Saya baru saja meracik parfum dengan bahan-bahan berikut: {list_bahan}. Tolong buatkan 3 pilihan nama parfum yang sangat elegan, mewah, dan berkelas. Untuk setiap nama, tuliskan satu paragraf filosofi/cerita parfum (storytelling) dengan bahasa Indonesia yang sangat puitis, memikat, profesional, dan terasa ditulis oleh manusia sungguhan. Fokus pada emosi, suasana, visual, dan karakter wangi yang dihasilkan dari bahan-bahan tersebut. JANGAN menyebutkan angka persentase."
                     response = model.generate_content(prompt_filosofi)
                     st.markdown("#### Hasil Karya Konseptual Anda:")
                     st.write(response.text)
@@ -225,14 +288,10 @@ with tab_ai:
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
-                
-                # UBAH MODEL KE GEMINI-1.5-FLASH
                 model = genai.GenerativeModel('gemini-1.5-flash')
-                
                 with st.spinner("AI sedang memikirkan jawaban..."):
                     konteks_system = "Kamu adalah seorang Master Perfumer kelas dunia yang sangat ahli, elegan, dan profesional. "
                     prompt_lengkap = konteks_system + formula_context + "\n\nPertanyaan pengguna: " + prompt_user
-                    
                     response = model.generate_content(prompt_lengkap)
                     st.success("Jawaban AI:")
                     st.write(response.text)
