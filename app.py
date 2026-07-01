@@ -175,16 +175,18 @@ with tab_formula:
 # --- TAB 2: AI PERFUMER ASSISTANT ---
 with tab_ai:
     st.header("🤖 Asisten AI Perfumer")
-    api_key = st.text_input("Masukkan Google Gemini API Key Anda", type="password")
+    st.markdown("Konsultasi formula, cari inspirasi *accord*, analisis IFRA, atau cari bahan pengganti.")
+    
     prompt_user = st.text_area("Tanyakan sesuatu ke AI... (Contoh: 'Buatkan saya formula parfum floral musky dengan 5 bahan')")
     
     if st.button("Tanya AI"):
-        if not api_key:
-            st.error("Masukkan API Key Gemini terlebih dahulu!")
-        elif not prompt_user:
+        if not prompt_user:
             st.warning("Silakan ketik pertanyaan Anda.")
         else:
             try:
+                # Mengambil API Key secara rahasia dari setelan Streamlit Cloud
+                api_key = st.secrets["GEMINI_API_KEY"]
+                
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-pro')
                 with st.spinner("AI sedang memikirkan racikan terbaik..."):
@@ -192,8 +194,10 @@ with tab_ai:
                     response = model.generate_content(konteks_system + prompt_user)
                     st.success("Jawaban AI:")
                     st.write(response.text)
+            except KeyError:
+                st.error("⚠️ API Key belum disetel! Silakan masukkan GEMINI_API_KEY di menu pengaturan rahasia (Secrets) Streamlit Anda.")
             except Exception as e:
-                st.error(f"Terjadi kesalahan pada AI: {e}. Pastikan API Key valid.")
+                st.error(f"Terjadi kesalahan pada AI: {e}.")
 
 # --- TAB 3: DATABASE IFRA ---
 with tab_db:
