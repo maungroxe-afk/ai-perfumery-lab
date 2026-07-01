@@ -10,8 +10,9 @@ st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="
 @st.cache_data
 def load_database():
     try:
-        # Membaca dari file CSV baru yang lebih pro dan detail
-        df = pd.read_csv("database_ifra_pro.csv")
+        # Membaca dari file CSV. sep=None dan engine='python' agar bisa otomatis 
+        # membaca file yang dipisahkan oleh Koma (,) maupun Tab (jarak spasi panjang).
+        df = pd.read_csv("database_ifra_pro.csv", sep=None, engine='python')
         return df
     except FileNotFoundError:
         st.error("File database_ifra_pro.csv tidak ditemukan di repository!")
