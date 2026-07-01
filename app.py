@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 import os
+import plotly.express as px
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="wide")
@@ -10,7 +11,7 @@ st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="
 @st.cache_data
 def load_database():
     try:
-        df = pd.read_csv("database_ifra_pro.csv", sep=None, engine='python')  
+        df = pd.read_csv("database_ifra_pro.csv", sep=",")
         df['Kategori_IFRA_4'] = pd.to_numeric(df['Kategori_IFRA_4'], errors='coerce')
         return df
     except FileNotFoundError:
@@ -20,7 +21,7 @@ def load_database():
 df_ifra = load_database()
 
 st.title("🧪 AI Perfumery Lab Pro & IFRA Analyzer")
-st.markdown("Aplikasi peracikan parfum cerdas dengan kalkulasi Produk Akhir (EDT/EDP/Extrait).")
+st.markdown("Aplikasi peracikan parfum cerdas dengan kalkulasi Produk Akhir dan Visualisasi Profil Aroma.")
 
 # --- TABS ---
 tab_formula, tab_ai, tab_db = st.tabs(["⚖️ Kalkulator Formulasi", "🤖 AI Perfumer Assistant", "📚 Database IFRA Pro"])
@@ -71,32 +72,26 @@ with tab_formula:
             df_formula = pd.DataFrame(st.session_state.formula)
             df_formula = df_formula.groupby("Bahan", as_index=False).sum()
             
-            # Hitung Total Input (Untuk memantau apakah sudah 100%)
             total_input = df_formula["Input"].sum()
             
-            # Menampilkan Progress Bar jika total <= 100
+            # Progress Bar Formula
             st.metric(label="Total Input Formula Saat Ini", value=f"{total_input:.2f}")
             if total_input < 100:
                 st.info(f"💡 Masih kurang {100 - total_input:.2f} lagi untuk mencapai formula 100%.")
             elif total_input > 100:
-                st.warning(f"⚠️ Total formula melebihi 100 ({total_input:.2f}). Sistem akan otomatis menyesuaikannya menjadi persentase relatif (100%).")
+                st.warning(f"⚠️ Total formula melebihi 100 ({total_input:.2f}). Sistem akan otomatis menyesuaikannya menjadi persentase relatif.")
             else:
                 st.success("✅ Total formula pas 100%!")
 
-            # Perhitungan dalam BIBIT MURNI (Konsentrat)
             df_formula["% di Bibit"] = (df_formula["Input"] / total_input) * 100
-            
-            # Perhitungan dalam PRODUK AKHIR (Setelah dicampur pelarut/alkohol)
             df_formula["% di Produk Akhir"] = df_formula["% di Bibit"] * (val_konsentrasi / 100.0)
             
-            # Perhitungan Gram yang harus ditimbang
             kebutuhan_bibit_total = val_volume * (val_konsentrasi / 100.0)
             pelarut_total = val_volume - kebutuhan_bibit_total
-            
             df_formula["Target Timbangan (g)"] = (df_formula["% di Bibit"] / 100.0) * kebutuhan_bibit_total
             
-            # Gabungkan dengan limit IFRA
-            df_formula = pd.merge(df_formula, df_ifra[["Bahan", "Kategori_IFRA_4"]], on="Bahan", how="left")
+            # Gabungkan dengan database
+            df_formula = pd.merge(df_formula, df_ifra[["Bahan", "Kategori_IFRA_4", "Aroma_Profile"]], on="Bahan", how="left")
             
             def cek_ifra(row):
                 persen_akhir = row["% di Produk Akhir"]
@@ -106,24 +101,67 @@ with tab_formula:
             df_formula["Status IFRA"] = df_formula.apply(cek_ifra, axis=1)
             df_formula.rename(columns={"Kategori_IFRA_4": "Batas IFRA (%)"}, inplace=True)
             
-            # Membulatkan angka menjadi 2 angka di belakang koma
             kolom_numerik = ["Input", "% di Bibit", "Target Timbangan (g)", "% di Produk Akhir", "Batas IFRA (%)"]
             for col in kolom_numerik:
                 df_formula[col] = df_formula[col].round(2)
             
-            # Tampilan Tabel
             df_tampil = df_formula[["Bahan", "Input", "% di Bibit", "Target Timbangan (g)", "% di Produk Akhir", "Batas IFRA (%)", "Status IFRA"]]
             
             st.markdown("---")
             st.subheader(f"📊 Resep Final: {pilihan_volume} {pilihan_konsentrasi.split('-')[0].strip()}")
-            st.info(f"💡 **Instruksi Timbangan:** Timbang bahan satu per satu sesuai kolom **Target Timbangan (g)** hingga total **{kebutuhan_bibit_total:.2f} gram**, lalu tambahkan **{pelarut_total:.2f} gram Alkohol/Pelarut**.")
+            st.info(f"💡 Timbang bahan satu per satu sesuai kolom **Target Timbangan (g)** hingga total **{kebutuhan_bibit_total:.2f} gram**, lalu tambahkan **{pelarut_total:.2f} gram Alkohol/Pelarut**.")
             
-            # Format tabel (membatasi 2 desimal di layar dan memberi warna indikator IFRA)
             st.dataframe(
                 df_tampil.style
                 .format({col: "{:.2f}" for col in kolom_numerik})
                 .map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"])
             )
+            
+            # --- FITUR BARU: VISUALISASI DIAGRAM AROMA ---
+            st.markdown("---")
+            st.subheader("🕸️ Visualisasi Profil Aroma (Olfactory Accord)")
+            
+            # Kamus Pemetaan Kata Kunci Aroma
+            kategori_aroma = {
+                "Citrus / Fresh": ["citrus", "lemon", "orange", "bergamot", "lime", "grapefruit", "zesty", "fresh", "segar"],
+                "Floral": ["floral", "rose", "mawar", "jasmine", "melati", "muguet", "tuberose", "ylang", "neroli", "white floral", "orchid"],
+                "Woody": ["woody", "kayu", "cedar", "sandalwood", "patchouli", "vetiver", "earthy", "mossy", "pine"],
+                "Spicy": ["spicy", "cinnamon", "clove", "pepper", "cardamom", "rempah", "pedas", "hangat"],
+                "Fruity": ["fruity", "apple", "peach", "pear", "berry", "pisang", "nanas", "apel", "plum", "buah"],
+                "Sweet / Gourmand": ["sweet", "manis", "vanilla", "gourmand", "caramel", "cokelat", "madu", "tonka", "almond", "creamy"],
+                "Musk": ["musk", "musky", "powdery", "clean", "bersih"],
+                "Amber / Balsamic": ["amber", "ambergris", "balsamic", "resin", "warm", "incense", "dupa", "mur"],
+                "Green / Herbal": ["green", "hijau", "leaf", "grass", "rumput", "herbal", "lavender", "mint", "camphor", "tea"],
+                "Animalic / Leather": ["animalic", "leathery", "leather", "kulit", "civet", "castoreum", "smoky", "fecal"],
+                "Marine / Aquatic": ["marine", "watery", "ozone", "sea", "aquatic", "melon"]
+            }
+            
+            skor_aroma = {k: 0.0 for k in kategori_aroma.keys()}
+            
+            # Hitung skor berdasarkan deskripsi dan input/persentase formula
+            for idx, row in df_formula.iterrows():
+                deskripsi = str(row["Aroma_Profile"]).lower()
+                bobot = row["% di Bibit"]
+                
+                for kategori, keywords in kategori_aroma.items():
+                    for word in keywords:
+                        if word in deskripsi:
+                            skor_aroma[kategori] += bobot
+                            break # Cukup dihitung 1 kali per kategori untuk 1 bahan
+                            
+            # Ubah menjadi DataFrame untuk Plotly
+            df_radar = pd.DataFrame(list(skor_aroma.items()), columns=['Kategori Aroma', 'Skor Kekuatan'])
+            # Hapus kategori yang skornya 0 agar diagram lebih bersih
+            df_radar = df_radar[df_radar['Skor Kekuatan'] > 0]
+            
+            if not df_radar.empty:
+                df_radar = df_radar.sort_values(by='Skor Kekuatan', ascending=True)
+                fig = px.bar(df_radar, x='Skor Kekuatan', y='Kategori Aroma', orientation='h', 
+                             title="Karakteristik Utama Parfum Anda",
+                             color='Skor Kekuatan', color_continuous_scale='Agsunset')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.write("Belum cukup data untuk membentuk profil aroma.")
             
             if st.button("🗑️ Hapus Semua Formula"):
                 st.session_state.formula = []
@@ -134,7 +172,6 @@ with tab_formula:
 # --- TAB 2: AI PERFUMER ASSISTANT ---
 with tab_ai:
     st.header("🤖 Asisten AI Perfumer")
-    
     api_key = st.text_input("Masukkan Google Gemini API Key Anda", type="password")
     prompt_user = st.text_area("Tanyakan sesuatu ke AI... (Contoh: 'Buatkan saya formula parfum floral musky dengan 5 bahan')")
     
