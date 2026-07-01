@@ -106,6 +106,11 @@ with tab_formula:
             df_formula["Status IFRA"] = df_formula.apply(cek_ifra, axis=1)
             df_formula.rename(columns={"Kategori_IFRA_4": "Batas IFRA (%)"}, inplace=True)
             
+            # Membulatkan angka menjadi 2 angka di belakang koma
+            kolom_numerik = ["Input", "% di Bibit", "Target Timbangan (g)", "% di Produk Akhir", "Batas IFRA (%)"]
+            for col in kolom_numerik:
+                df_formula[col] = df_formula[col].round(2)
+            
             # Tampilan Tabel
             df_tampil = df_formula[["Bahan", "Input", "% di Bibit", "Target Timbangan (g)", "% di Produk Akhir", "Batas IFRA (%)", "Status IFRA"]]
             
@@ -113,7 +118,12 @@ with tab_formula:
             st.subheader(f"📊 Resep Final: {pilihan_volume} {pilihan_konsentrasi.split('-')[0].strip()}")
             st.info(f"💡 **Instruksi Timbangan:** Timbang bahan satu per satu sesuai kolom **Target Timbangan (g)** hingga total **{kebutuhan_bibit_total:.2f} gram**, lalu tambahkan **{pelarut_total:.2f} gram Alkohol/Pelarut**.")
             
-            st.dataframe(df_tampil.style.map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"]))
+            # Format tabel (membatasi 2 desimal di layar dan memberi warna indikator IFRA)
+            st.dataframe(
+                df_tampil.style
+                .format({col: "{:.2f}" for col in kolom_numerik})
+                .map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"])
+            )
             
             if st.button("🗑️ Hapus Semua Formula"):
                 st.session_state.formula = []
