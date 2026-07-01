@@ -11,7 +11,6 @@ st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="
 @st.cache_data
 def load_database():
     try:
-        # Menggunakan sep=None agar kebal terhadap format TAB maupun KOMA
         df = pd.read_csv("database_ifra_pro.csv", sep=None, engine='python')
         df['Kategori_IFRA_4'] = pd.to_numeric(df['Kategori_IFRA_4'], errors='coerce')
         return df
@@ -75,7 +74,6 @@ with tab_formula:
             
             total_input = df_formula["Input"].sum()
             
-            # Progress Bar Formula
             st.metric(label="Total Input Formula Saat Ini", value=f"{total_input:.2f}")
             if total_input < 100:
                 st.info(f"💡 Masih kurang {100 - total_input:.2f} lagi untuk mencapai formula 100%.")
@@ -91,7 +89,6 @@ with tab_formula:
             pelarut_total = val_volume - kebutuhan_bibit_total
             df_formula["Target Timbangan (g)"] = (df_formula["% di Bibit"] / 100.0) * kebutuhan_bibit_total
             
-            # Gabungkan dengan database
             df_formula = pd.merge(df_formula, df_ifra[["Bahan", "Kategori_IFRA_4", "Aroma_Profile"]], on="Bahan", how="left")
             
             def cek_ifra(row):
@@ -118,7 +115,30 @@ with tab_formula:
                 .map(lambda x: "background-color: #ffcccc" if "❌" in str(x) else "background-color: #ccffcc" if "✅" in str(x) else "", subset=["Status IFRA"])
             )
             
-            # --- FITUR BARU: VISUALISASI DIAGRAM AROMA LINGKARAN ---
+            # --- FITUR BARU: KELOLA & HAPUS BAHAN ---
+            st.markdown("---")
+            st.subheader("🛠️ Kelola Formula")
+            
+            bahan_dalam_formula = df_formula["Bahan"].tolist()
+            col_del1, col_del2, col_del3 = st.columns([2, 1, 1])
+            
+            with col_del1:
+                bahan_hapus = st.selectbox("Pilih bahan yang ingin dikeluarkan:", bahan_dalam_formula)
+            with col_del2:
+                st.write("") # Memberi jarak spasi agar tombol sejajar dengan kotak input
+                st.write("")
+                if st.button("🗑️ Hapus Bahan Ini"):
+                    # Menghapus bahan yang dipilih dari session state
+                    st.session_state.formula = [item for item in st.session_state.formula if item["Bahan"] != bahan_hapus]
+                    st.rerun()
+            with col_del3:
+                st.write("")
+                st.write("")
+                if st.button("🚨 Hapus Semua Formula"):
+                    st.session_state.formula = []
+                    st.rerun()
+
+            # --- VISUALISASI DIAGRAM AROMA LINGKARAN ---
             st.markdown("---")
             st.subheader("🕸️ Visualisasi Profil Aroma (Olfactory Accord)")
             
@@ -138,7 +158,6 @@ with tab_formula:
             
             skor_aroma = {k: 0.0 for k in kategori_aroma.keys()}
             
-            # Hitung skor
             for idx, row in df_formula.iterrows():
                 deskripsi = str(row["Aroma_Profile"]).lower()
                 bobot = row["% di Bibit"]
@@ -153,22 +172,16 @@ with tab_formula:
             df_radar = df_radar[df_radar['Skor Kekuatan'] > 0]
             
             if not df_radar.empty:
-                # Menggunakan Diagram Lingkaran (Pie / Donut Chart)
                 fig = px.pie(df_radar, values='Skor Kekuatan', names='Kategori Aroma', 
                              title="Komposisi Karakter Parfum Anda",
-                             hole=0.4, # Membuatnya menjadi Donut Chart agar elegan
+                             hole=0.4,
                              color_discrete_sequence=px.colors.qualitative.Pastel)
                 
-                # Menampilkan label dan persentase di dalam potongan kue
                 fig.update_traces(textposition='inside', textinfo='percent+label')
-                
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.write("Belum cukup data untuk membentuk profil aroma.")
             
-            if st.button("🗑️ Hapus Semua Formula"):
-                st.session_state.formula = []
-                st.rerun()
     else:
         st.warning("Database bahan baku kosong atau file CSV belum di-upload ke GitHub.")
 
@@ -184,9 +197,7 @@ with tab_ai:
             st.warning("Silakan ketik pertanyaan Anda.")
         else:
             try:
-                # Mengambil API Key secara rahasia dari setelan Streamlit Cloud
                 api_key = st.secrets["GEMINI_API_KEY"]
-                
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-pro')
                 with st.spinner("AI sedang memikirkan racikan terbaik..."):
