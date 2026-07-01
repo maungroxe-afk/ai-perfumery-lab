@@ -10,7 +10,7 @@ st.set_page_config(page_title="AI Perfumery Lab Pro", page_icon="🧪", layout="
 @st.cache_data
 def load_database():
     try:
-        df = pd.read_csv("database_ifra_pro.csv", sep=none, engine='python') 
+        df = pd.read_csv("database_ifra_pro.csv", sep=None, engine='python')  
         df['Kategori_IFRA_4'] = pd.to_numeric(df['Kategori_IFRA_4'], errors='coerce')
         return df
     except FileNotFoundError:
